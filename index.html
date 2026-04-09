@@ -1,0 +1,1196 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Survey Report</title>
+<link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Survey">
+<meta name="theme-color" content="#1a3a5c">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --navy:#1a3a5c;--navy2:#2d5a8e;--gold:#c8a84b;--bg:#f0f4f8;
+  --card:#fff;--text:#1a1a2e;--muted:#6b7280;--border:#d1d5db;
+  --green:#059669;--red:#dc2626;--r:10px;--sh:0 2px 8px rgba(0,0,0,.08)
+}
+html{font-size:16px}
+body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding-bottom:76px}
+input,textarea,select{font-size:16px!important;font-family:inherit}
+button{font-family:inherit;cursor:pointer}
+
+/* HEADER */
+.hdr{background:var(--navy);color:#fff;padding:10px 14px;position:sticky;top:0;z-index:200;box-shadow:0 2px 10px rgba(0,0,0,.25)}
+.hdr-row1{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.hdr h1{font-size:1rem;font-weight:700;letter-spacing:.02em}
+.vessel-name{font-size:.78rem;color:var(--gold);margin-top:2px;min-height:1em}
+
+/* NAV TABS */
+.nav{background:var(--navy);padding:0 10px 8px;overflow-x:auto;white-space:nowrap;-webkit-overflow-scrolling:touch;scrollbar-width:none;display:flex;gap:5px}
+.nav::-webkit-scrollbar{display:none}
+.nav-btn{display:inline-flex;align-items:center;gap:4px;padding:5px 11px;border-radius:20px;font-size:.75rem;font-weight:500;color:rgba(255,255,255,.65);border:1px solid transparent;background:transparent;white-space:nowrap;transition:all .2s}
+.nav-btn.active{background:var(--gold);color:var(--navy);font-weight:700}
+.nav-btn.disabled-sec{opacity:.45}
+.nav-btn .dot{width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block}
+
+/* MAIN */
+.main{padding:12px;max-width:860px;margin:0 auto}
+
+/* CARD */
+.card{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);margin-bottom:14px;overflow:hidden}
+.card-hdr{background:var(--navy);color:#fff;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.card-hdr h2{font-size:.9rem;font-weight:700;letter-spacing:.03em;line-height:1.2}
+.card-hdr .en{font-size:.72rem;color:rgba(255,255,255,.65);font-weight:400}
+.card-body{padding:10px 14px}
+
+/* TOGGLE */
+.tog{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;padding:4px 10px;border-radius:20px;font-size:.73rem;font-weight:600;flex-shrink:0}
+.tog.off{background:var(--red);border-color:var(--red)}
+
+/* FIELD ROWS */
+.frow{display:grid;grid-template-columns:45% 1fr;gap:6px;padding:7px 0;border-bottom:1px solid var(--border);align-items:center}
+.frow:last-child{border-bottom:none}
+.flabel{font-size:.78rem;color:var(--muted);font-weight:500;line-height:1.3;padding-right:4px}
+.fval{display:flex;gap:5px;align-items:center}
+.fi{flex:1;border:1px solid var(--border);border-radius:6px;padding:8px 9px;font-size:.88rem;background:#fff;color:var(--text);-webkit-appearance:none;width:100%}
+.fi:focus{outline:none;border-color:var(--navy2);box-shadow:0 0 0 3px rgba(45,90,142,.15)}
+.sn-btn{flex-shrink:0;background:var(--navy);color:#fff;border:none;border-radius:5px;padding:7px 7px;font-size:.68rem;font-weight:700;line-height:1}
+.del-row{background:#fee2e2;color:var(--red);border:none;border-radius:5px;padding:7px 7px;font-size:1rem;line-height:1;flex-shrink:0}
+
+/* ROW ACTIONS */
+.row-actions{display:flex;gap:8px;padding:8px 0 2px;justify-content:flex-start}
+.btn-add{background:var(--navy);color:#fff;border:none;border-radius:7px;padding:7px 13px;font-size:.8rem;font-weight:600}
+.btn-add-custom{background:#e0e7ff;color:#3730a3;border:none;border-radius:7px;padding:7px 13px;font-size:.8rem;font-weight:600}
+
+/* TESTS TABLE */
+.sec-title{font-size:.78rem;font-weight:700;color:var(--muted);margin:12px 0 6px;text-transform:uppercase;letter-spacing:.05em}
+.tests-tbl{width:100%;border-collapse:collapse;margin-bottom:4px}
+.tests-tbl th{background:#f1f5f9;font-size:.75rem;font-weight:600;padding:5px 7px;text-align:left;border:1px solid var(--border)}
+.tests-tbl td{padding:3px 4px;border:1px solid var(--border)}
+.tests-tbl .tfi{width:100%;border:none;padding:6px 5px;font-size:.85rem;background:transparent}
+.del-test{background:#fee2e2;color:var(--red);border:none;border-radius:4px;padding:4px 6px;font-size:.8rem}
+.btn-add-test{background:#e0e7ff;color:#3730a3;border:none;border-radius:7px;padding:5px 10px;font-size:.75rem;font-weight:600;margin-top:4px}
+
+/* PHOTOS */
+.photos-wrap{margin-top:12px}
+.photo-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px}
+.photo-item{position:relative}
+.photo-item img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:6px;border:1px solid var(--border)}
+.photo-del{position:absolute;top:3px;right:3px;background:rgba(220,38,38,.85);color:#fff;border:none;border-radius:50%;width:22px;height:22px;font-size:14px;display:flex;align-items:center;justify-content:center;line-height:1;padding:0}
+.photo-cap{width:100%;border:1px solid var(--border);border-radius:4px;padding:4px 6px;font-size:.73rem;margin-top:4px;color:var(--text)}
+.photo-add{width:100%;aspect-ratio:4/3;border:2px dashed var(--border);border-radius:6px;background:#f8fafc;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--muted);font-size:.73rem;gap:4px}
+.photo-add svg{opacity:.4;width:26px;height:26px}
+.photo-input{display:none}
+
+/* NOTES / OUTCOME */
+.no-wrap{margin-top:12px;display:grid;gap:9px}
+.no-wrap label{font-size:.78rem;font-weight:700;color:var(--muted);display:block;margin-bottom:3px;text-transform:uppercase;letter-spacing:.04em}
+.no-wrap textarea{width:100%;border:1px solid var(--border);border-radius:7px;padding:8px 10px;font-size:.88rem;resize:vertical;min-height:58px;color:var(--text);background:#fff}
+.no-wrap textarea:focus{outline:none;border-color:var(--navy2)}
+.outcome-ta{background:#fefce8!important;border-color:#d4af37!important;font-weight:600}
+
+/* DOCUMENTS TABLE */
+.docs-tbl{width:100%;border-collapse:collapse}
+.docs-tbl th{background:#f1f5f9;font-size:.73rem;font-weight:700;padding:5px 6px;border:1px solid var(--border);text-align:left}
+.docs-tbl td{padding:3px 4px;border:1px solid var(--border)}
+.docs-tbl .dfi{width:100%;border:none;padding:5px 4px;font-size:.82rem;background:transparent}
+.del-doc{background:#fee2e2;color:var(--red);border:none;border-radius:4px;padding:4px 6px;font-size:.8rem}
+.btn-add-doc{background:#e0e7ff;color:#3730a3;border:none;border-radius:7px;padding:5px 10px;font-size:.75rem;font-weight:600;margin-top:4px}
+
+/* COVER FORM */
+.cover-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.cover-field{display:flex;flex-direction:column;gap:4px}
+.cover-field label{font-size:.78rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.cover-field input,.cover-field textarea{border:1px solid var(--border);border-radius:7px;padding:9px 10px;font-size:.9rem;background:#fff;color:var(--text);-webkit-appearance:none}
+.cover-field input:focus,.cover-field textarea:focus{outline:none;border-color:var(--navy2)}
+.cover-field.full{grid-column:1/-1}
+
+/* SEA TRIAL TABLE */
+.sea-grid{display:grid;gap:8px}
+.sea-run-card{border:1px solid var(--border);border-radius:7px;overflow:hidden}
+.sea-run-hdr{background:#f1f5f9;padding:6px 10px;font-size:.78rem;font-weight:700;color:var(--navy);display:flex;justify-content:space-between;align-items:center}
+.sea-run-body{padding:6px}
+.sea-tbl{width:100%;border-collapse:collapse;font-size:.78rem}
+.sea-tbl td{padding:4px 5px;border:1px solid var(--border)}
+.sea-tbl td:first-child{font-weight:600;background:#f8fafc;width:55%}
+.sea-tbl input{width:100%;border:none;padding:3px;font-size:.8rem;background:transparent;text-align:center}
+
+/* BOTTOM BAR */
+.bottom-bar{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--border);padding:10px 14px;display:flex;gap:8px;box-shadow:0 -2px 8px rgba(0,0,0,.08);z-index:200}
+.btn-primary{flex:1;background:var(--navy);color:#fff;border:none;border-radius:9px;padding:12px;font-size:.9rem;font-weight:700}
+.btn-secondary{background:#fff;color:var(--navy);border:2px solid var(--navy);border-radius:9px;padding:12px 14px;font-size:.82rem;font-weight:700}
+.btn-danger{background:var(--red);color:#fff;border:none;border-radius:9px;padding:12px 14px;font-size:.82rem;font-weight:700}
+
+/* TOAST */
+.toast{position:fixed;top:120px;left:50%;transform:translateX(-50%);background:#1a3a5c;color:#fff;padding:9px 18px;border-radius:20px;font-size:.85rem;font-weight:600;z-index:999;opacity:0;transition:opacity .3s;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,.2)}
+.toast.show{opacity:1}
+
+/* SAVE STATUS */
+.save-status{font-size:.72rem;color:rgba(255,255,255,.7);display:flex;align-items:center;gap:4px;flex-shrink:0}
+.save-dot{width:7px;height:7px;border-radius:50%;background:#4ade80}
+.save-dot.saving{background:var(--gold);animation:pulse .8s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* DISABLED SECTION OVERLAY */
+.sec-disabled .card-body,.sec-disabled .frow,.sec-disabled .tests-tbl,.sec-disabled .photos-wrap,.sec-disabled .no-wrap{opacity:.35;pointer-events:none}
+
+/* RESPONSIVE */
+@media(max-width:520px){
+  .cover-grid{grid-template-columns:1fr}
+  .photo-grid{grid-template-columns:repeat(2,1fr)}
+  .frow{grid-template-columns:1fr}
+  .fval{flex-wrap:nowrap}
+}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div class="hdr-row1">
+    <div>
+      <h1>Survey Report</h1>
+      <div class="vessel-name" id="hdr-vessel"></div>
+    </div>
+    <div class="save-status" id="save-status">
+      <span class="save-dot" id="save-dot"></span>
+      <span id="save-label">Salvato</span>
+    </div>
+  </div>
+</div>
+<div class="nav" id="nav-tabs"></div>
+
+<div class="main" id="main-content"></div>
+
+<div class="bottom-bar">
+  <button class="btn-secondary" onclick="newReport()">Nuovo</button>
+  <button class="btn-primary" id="export-btn" onclick="exportWord()">⬇ Esporta Word</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ─── SECTION DEFINITIONS ────────────────────────────────────────────────────
+const SECTIONS = [
+  {
+    id:'cover', title:'DATI YACHT', titleEn:'VESSEL DETAILS', type:'cover',
+    showSN:false, rows:[], tests:[]
+  },
+  {
+    id:'inspection', title:'DETTAGLI ISPEZIONI', titleEn:'ABOUT THE INSPECTIONS',
+    showSN:false,
+    rows:[
+      'Luogo della vista / Place of survey',
+      'Data della vista / Date of survey',
+      'Unità in secco / Yacht on blocks',
+      'Unità in acqua / Yacht in the water',
+      'Sea trial',
+    ], tests:[]
+  },
+  {
+    id:'documents', title:'DOCUMENTI', titleEn:'DOCUMENTS',
+    type:'documents', showSN:false, rows:[], tests:[],
+    defaultDocs:[
+      'Certificate of Registry',
+      "Owner's Manual",
+      'Tabella Deviazioni Residue / Compass deviation Table',
+      '','',
+    ]
+  },
+  {
+    id:'vessel_id', title:"DATI DELL'UNITÀ", titleEn:'IDENTIFYING DETAILS',
+    showSN:true,
+    rows:[
+      "Costruttore / Shipbuilder","Anno di costruzione / Year of construction",
+      "Tipologia / Type of vessel","Modello / Model","Nome / Name",
+      "RID / Official Nr","Bandiera / Flag","Proprietario / Owner",
+    ], tests:[]
+  },
+  {
+    id:'hull_data', title:'DATI DELLO SCAFO', titleEn:'DETAILS OF THE HULL',
+    showSN:true,
+    rows:[
+      "Lunghezza / Length, overall (mt)","Larghezza / Breadth, overall (mt)",
+      "Altezza costruzione / Height (mt)","Dislocamento / Displacement (Tonn)",
+      "Stazza Lorda / Gross Tonnage (GT)","Stazza Netta / Net Tonnage (NT)",
+    ], tests:[]
+  },
+  {
+    id:'main_engines', title:'MOTORI PRINCIPALI', titleEn:'MAIN ENGINES',
+    showSN:true,
+    rows:[
+      "Tipo di motore / Engine type","Numero di motori / Engine nr",
+      "Combustibile / Fuel","Costruttore e modello / Manufacturer, model",
+      "Matricola / Serial Number","Cilindrata / Displacement",
+      "Potenza massima / Max power",
+    ],
+    tests:['Avviamento / Start up','Funzionamento / Run','Inversione / Gear reverse']
+  },
+  {
+    id:'fuel_sys', title:'IMPIANTO COMBUSTIBILE', titleEn:'FUEL SYSTEM',
+    showSN:true,
+    rows:[
+      "Numero casse / Nr of tanks","Pompa di trasferimento / Transfer pumps",
+      "Sistema di depurazione / Fuel depuration",
+    ],
+    tests:['Pompa di trasferimento / Transfer pumps','Sistema di depurazione / Fuel depuration']
+  },
+  {
+    id:'fire_sys', title:'IMPIANTO ANTINCENDIO', titleEn:'FIRE SYSTEM',
+    showSN:true,
+    rows:[
+      "Tipo sensori / Type of sensor","Agente estinguente / Firefighting system",
+      "Pompa incendio / Fire pump","Pompa emergenza / Emergency fire pump",
+    ],
+    tests:['Pompa incendio / Fire pump','Motopompa d\'emergenza / Emergency fire pump']
+  },
+  {
+    id:'exhaust', title:'IMPIANTO GAS SCARICO', titleEn:'EXHAUST SYSTEM',
+    showSN:true,
+    rows:[
+      "Materiale di costr. / Material","Fascettatura / Clamps",
+    ],
+    tests:['Esame visivo / Visual checks','Perdite / Leaks']
+  },
+  {
+    id:'ventilation', title:'IMPIANTO VENTILAZIONE', titleEn:'VENTILATION SYSTEM',
+    showSN:true,
+    rows:["Produttore / Fan/extractors manufacturer"],
+    tests:['Funzion. Ventilazione / Fans run','Funzion. Estrattori / Extractors run']
+  },
+  {
+    id:'electrical', title:'GENERATORI E IMPIANTO ELETTRICO', titleEn:'GEN SETS AND ELECTRICAL',
+    showSN:true,
+    rows:[
+      "Produttore / Manufacturer","Modello / Model",
+      "Generatori, nr / Generators, nr","Potenza max / Max power",
+    ],
+    tests:['Accensione / Start up','Funzionamento / Run','Parallelo / Parallel','Seamless transfer']
+  },
+  {
+    id:'hull_uw', title:'OPERA VIVA', titleEn:'HULL (UNDERWATER)',
+    showSN:true,
+    rows:[
+      "Materiale / Building material","Antifouling",
+      "Evidenze impatto / Impact evidence","Strutture / Frames",
+      "Scratch Test","Moisture Test","U/S Test","Thermographic Test",
+    ], tests:[]
+  },
+  {
+    id:'propellers', title:'ELICHE ED ASSI', titleEn:'PROPELLERS & SHAFTS',
+    showSN:true,
+    rows:[
+      "Tipo e materiale / Type and material","Test passo / Pitch Test",
+      "Condizione eliche / Propellers condition","Fissaggio eliche / Propellers fastening",
+      "Rotazioni assi / Shafts rotation","Fissaggio bracci / T-Brackets fastening",
+      "Condizioni boccole / Bushings condition","Tenuta asse / Stern tube seal",
+      "Condizione tenuta / Seal condition",
+    ], tests:[]
+  },
+  {
+    id:'rudders', title:'TIMONI', titleEn:'RUDDERS',
+    showSN:true,
+    rows:[
+      "Tipo / Type","Materiale di costr. / Material",
+      "Rotazione / Rotation","Comando / Control type",
+      "Gioco assiale / Axial backlash","Cond. asse / Rudder stock condition",
+    ], tests:[]
+  },
+  {
+    id:'topsides', title:'OPERA MORTA', titleEn:'TOPSIDES',
+    showSN:true,
+    rows:[
+      "Materiale costr. / Material","Condizioni / Condition",
+      "Evidenze di impatto / Impact evidences","Riparazioni / Repairs",
+    ], tests:[]
+  },
+  {
+    id:'decks', title:'PONTI E SOVRASTRUTTURA', titleEn:'DECKS & SUPERSTRUCTURE',
+    showSN:true,
+    rows:[
+      "Materiale costr. / Material","Condizioni / Condition",
+      "Unione scafo coperta / Hull–Deck joint","Zona prora e poppa / Bow and stern",
+      "Basi candelieri / Stanchions bases","Basi verricelli / Winches bases",
+      "Evidenze impatto / Impact evidences",
+    ], tests:[]
+  },
+  {
+    id:'deck_rig', title:'ATTREZZATURA DI COPERTA', titleEn:'DECK RIGGING',
+    showSN:true,
+    rows:[
+      "Falchetta / Gunwale","Battagliola / Railing stanchions",
+      "Bitte ormeggio / Mooring cleats","Portelli / Hatches",
+      "Stazioni comando / Rudder control stations","Finestrature / Windows",
+    ], tests:[]
+  },
+  {
+    id:'bilge', title:'IMPIANTO SENTINA', titleEn:'BILGE SYSTEM',
+    showSN:true,
+    rows:[
+      "Pompe sentina / Bilge pumps","Pompa sentina d'emerg. / Emergency bilge pumps",
+    ],
+    tests:['Allarme di alto livello / High level alarm','Funzionamento pompe / Pumps run']
+  },
+  {
+    id:'water_sys', title:'IMPIANTI VARI ACQUE', titleEn:'WATER SYSTEMS',
+    showSN:true,
+    rows:[
+      "Materiale di costr. / Material","Prese a mare motori / Engine raw water intake",
+      "Scarichi vari / Drainages","Filtri / Water filters",
+      "Passascafo / Thru hulls","Fascette / Clamps",
+    ], tests:[]
+  },
+  {
+    id:'freshwater', title:'IMPIANTO ACQUA DOLCE', titleEn:'FRESH WATER SYSTEM',
+    showSN:true,
+    rows:["Boiler","Gruppo autoclave / Fresh water pump","Dissalatore / Watermaker"],
+    tests:['Boiler','Gruppo autoclave / Fresh water pump','Dissalatore / Watermaker']
+  },
+  {
+    id:'sewage', title:'IMPIANTO ACQUE NERE E GRIGIE', titleEn:'BLACK & GREY WATER',
+    showSN:true,
+    rows:[
+      "Trattamento acque / Water treatment","Maceratore / Macerator pump",
+      "Pompe acque nere / BW tank discharge pump","Pompe acque grigie / Grey water discharge pumps",
+    ],
+    tests:['Scarico wc / Toilets flushing','Trattamento acque nere / Water treatment','Pompe acque nere / BW discharge pump','Pompe acque grigie / Grey water discharge pumps']
+  },
+  {
+    id:'stabilizers', title:'STABILIZZATORI', titleEn:'STABILIZING SYSTEM',
+    showSN:true,
+    rows:[
+      "Costruttore / Manufacturer","Modello / Model",
+      "Nr matricola / Serial nr","Ultimo service / Last service",
+    ],
+    tests:['Navigation mode','At anchor mode']
+  },
+  {
+    id:'ac', title:'IMPIANTO ARIA CONDIZIONATA', titleEn:'AC SYSTEM',
+    showSN:true,
+    rows:[
+      "Produttore / Manufacturer","Chillers",
+      "Pompe acqua mare / Sea water pumps","Pompa di ricircolo / Recirculation pump",
+    ],
+    tests:['Avviamento / System start up','Funzionamento / System run']
+  },
+  {
+    id:'hydraulics', title:'SISTEMI IDRAULICI', titleEn:'HYDRAULICS',
+    showSN:true, rows:[],
+    tests:['Bow thruster','Stern Thruster','Passerella / Gangway','Tonneggi / Capstains','Gruetta / Tender crane','Portellone poppa / Transom door']
+  },
+  {
+    id:'galley', title:'ELETTRODOMESTICI CUCINA/LAVANDERIA', titleEn:'GALLEY/LAUNDRY APPLIANCES',
+    showSN:true,
+    rows:[
+      "Piano cottura / Hob","Grill + friggitrice / Grill + frier","Frigo / Fridge",
+      "Forni / Oven","Lavastoviglie / Dishwasher","Lavabiancheria + asciug. / Washing mach. + drier",
+      "Ice maker","Cantinetta vini / Wine cellar",
+    ], tests:[]
+  },
+  {
+    id:'entertainment', title:'ENTERTAINMENT', titleEn:'ENTERTAINMENT',
+    showSN:true,
+    rows:[
+      "Sun Deck / Flying bridge","UD saloon","Main saloon","Owner's cabin",
+      "VIP's Cabin","Guest cabin PS","Guest cabin SS","Crew area",
+    ], tests:[]
+  },
+  {
+    id:'cctv', title:'TVCC', titleEn:'CCTV',
+    showSN:true,
+    rows:["Nr. Telecamere / Cameras, nr","Tipo e posizione / Type and position"],
+    tests:['Funzionamento / System start up and run']
+  },
+  {
+    id:'navigation', title:'NAVIGAZIONE E COMUNICAZIONE', titleEn:'NAVIGATION & COMMUNICATION',
+    showSN:true,
+    rows:[
+      "Bussola magn. / Mag. compass","Gyro","GPS","Chart/radar plotter",
+      "Autopilota / Autopilot","Echo","Salpancore / Windlasses","Tonneggi / Capstains (electr)",
+      "Bow thruster (electr)","Stern thruster (electr)","Gruetta / Crane (electr)","Dinghy",
+      "Contacatena / Chaincounter","Angolo barra / Rudder angle",
+      "AIS","Navtex","VHF","MF/HF","Wind station","Loudhailer",
+      "Search lights","Luci sub / Underwater lights","Sliding Door","Jacuzzi",
+      "Compress. / Air compressor",
+    ], tests:[]
+  },
+  {
+    id:'sea_trial', title:'PROVE IN NAVIGAZIONE', titleEn:'SEA TRIALS',
+    type:'sea_trial', showSN:true, rows:[], tests:[]
+  },
+  {
+    id:'interior', title:'INTERNI', titleEn:'INTERIOR LAYOUT',
+    showSN:true,
+    rows:[
+      "Lay-out","Materiale costr. / Material","Condizioni arredo / Condition",
+    ], tests:[]
+  },
+  {
+    id:'recommendations', title:'LAVORI PRESCRITTI E CONSIGLIATI', titleEn:'RECOMMENDATIONS',
+    type:'recommendations', showSN:false, rows:[], tests:[]
+  },
+  {
+    id:'conclusions', title:'CONCLUSIONI', titleEn:'SUMMARY',
+    type:'conclusions', showSN:false, rows:[], tests:[]
+  },
+];
+
+// ─── STATE ──────────────────────────────────────────────────────────────────
+let state = null;
+let saveTimer = null;
+
+function defaultState() {
+  return {
+    vessel: {
+      name:'', buildingNr:'', location:'', date:'', ownerRep:'', yardRep:'', pages:''
+    },
+    sections: SECTIONS.map(s => ({
+      id: s.id,
+      enabled: true,
+      rows: s.rows.map(r => ({ label:r, value:'' })),
+      tests: s.tests.map(t => ({ name:t, outcome:'' })),
+      photos: [],
+      notes: '',
+      outcome: '',
+      // special fields
+      docs: s.defaultDocs ? s.defaultDocs.map(d => ({ doc:d, issuedBy:'', issueDate:'', expiry:'' })) : undefined,
+      seaRuns: s.type==='sea_trial' ? defaultSeaRuns() : undefined,
+      recommendText: '',
+      conclusionText: '',
+    }))
+  };
+}
+
+function defaultSeaRuns() {
+  const PARAMS = [
+    "Heading (°)","Set engine speed (rpm)","Average speed (kts)",
+    "Engine oil pressure (psi)","Engine coolant temp. (°C)","Engine load factor (%)",
+    "Fuel consump. rate (lt/h)","Gearbox oil pressure (kPa)","Gearbox oil temp. (°C)",
+    "Exhaust gas temp. PORT (°C)","Exhaust gas temp. STBD (°C)",
+  ];
+  const runs = Array.from({length:9}, (_,i) => ({
+    rpm: [800,1000,1200,1400,1600,1800,2000,2200,'FS'][i],
+    params: PARAMS.map(p => ({ name:p, portVal:'', stbdVal:'' }))
+  }));
+  return { runs, notes:'', topSpeed:'', manoeuvrNotes:'' };
+}
+
+function getSection(id) { return state.sections.find(s=>s.id===id); }
+function getDef(id) { return SECTIONS.find(s=>s.id===id); }
+
+// ─── INDEXEDDB ───────────────────────────────────────────────────────────────
+let db = null;
+async function openDB() {
+  if (db) return db;
+  return new Promise((res,rej) => {
+    const req = indexedDB.open('SurveyApp', 1);
+    req.onupgradeneeded = e => e.target.result.createObjectStore('data');
+    req.onsuccess = e => { db = e.target.result; res(db); };
+    req.onerror = e => rej(e.target.error);
+  });
+}
+async function saveState() {
+  setStatus('saving');
+  try {
+    const d = await openDB();
+    await new Promise((res,rej) => {
+      const tx = d.transaction('data','readwrite');
+      tx.objectStore('data').put(JSON.stringify(state), 'current');
+      tx.oncomplete = () => { setStatus('saved'); res(); };
+      tx.onerror = rej;
+    });
+  } catch(e) { console.error(e); setStatus('saved'); }
+}
+async function loadState() {
+  try {
+    const d = await openDB();
+    return new Promise((res,rej) => {
+      const tx = d.transaction('data','readonly');
+      const req = tx.objectStore('data').get('current');
+      req.onsuccess = e => res(e.target.result ? JSON.parse(e.target.result) : null);
+      req.onerror = rej;
+    });
+  } catch(e) { return null; }
+}
+async function clearState() {
+  const d = await openDB();
+  return new Promise((res,rej) => {
+    const tx = d.transaction('data','readwrite');
+    tx.objectStore('data').delete('current');
+    tx.oncomplete = res; tx.onerror = rej;
+  });
+}
+
+function scheduleSave() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveState, 800);
+}
+
+function setStatus(s) {
+  const dot = document.getElementById('save-dot');
+  const lbl = document.getElementById('save-label');
+  if (!dot) return;
+  if (s==='saving') { dot.className='save-dot saving'; lbl.textContent='Salvataggio…'; }
+  else { dot.className='save-dot'; lbl.textContent='Salvato'; }
+}
+
+// ─── CURRENT VIEW ────────────────────────────────────────────────────────────
+let currentTab = 'cover';
+
+// ─── NAVIGATION ──────────────────────────────────────────────────────────────
+function buildNav() {
+  const nav = document.getElementById('nav-tabs');
+  nav.innerHTML = SECTIONS.map(s => {
+    const sec = getSection(s.id);
+    const isActive = s.id === currentTab;
+    const isDisabled = !sec.enabled;
+    return `<button class="nav-btn${isActive?' active':''}${isDisabled?' disabled-sec':''}"
+      onclick="switchTab('${s.id}')">${s.title.split(' ')[0]}</button>`;
+  }).join('');
+  // scroll active tab into view
+  setTimeout(() => {
+    const active = nav.querySelector('.active');
+    if (active) active.scrollIntoView({behavior:'smooth', inline:'center', block:'nearest'});
+  }, 50);
+}
+
+function switchTab(id) {
+  currentTab = id;
+  buildNav();
+  renderSection();
+}
+
+// ─── RENDER ───────────────────────────────────────────────────────────────────
+function renderSection() {
+  const sec = getSection(currentTab);
+  const def = getDef(currentTab);
+  const el = document.getElementById('main-content');
+  // update header vessel name
+  document.getElementById('hdr-vessel').textContent = state.vessel.name || '— nessun yacht —';
+
+  if (def.type === 'cover') { el.innerHTML = renderCover(); attachCoverEvents(); return; }
+  if (def.type === 'documents') { el.innerHTML = renderDocuments(sec, def); attachDocEvents(sec); return; }
+  if (def.type === 'sea_trial') { el.innerHTML = renderSeaTrial(sec, def); attachSeaEvents(sec); return; }
+  if (def.type === 'recommendations') { el.innerHTML = renderRecommendations(sec, def); attachRecEvents(sec); return; }
+  if (def.type === 'conclusions') { el.innerHTML = renderConclusions(sec, def); attachConclEvents(sec); return; }
+
+  el.innerHTML = renderStandardSection(sec, def);
+  attachStandardEvents(sec, def);
+}
+
+// ─── COVER ────────────────────────────────────────────────────────────────────
+function renderCover() {
+  const v = state.vessel;
+  return `<div class="card">
+    <div class="card-hdr"><h2>DATI YACHT <span class="en">/ VESSEL DETAILS</span></h2></div>
+    <div class="card-body">
+      <div class="cover-grid">
+        ${cf('name','Nome Yacht / Vessel Name',v.name,'text',true)}
+        ${cf('buildingNr','Building N°',v.buildingNr)}
+        ${cf('location','Luogo / Location',v.location)}
+        ${cf('date','Data / Date',v.date,'date')}
+        ${cf('ownerRep',"Rappresentante armatore / Owner's rep",v.ownerRep)}
+        ${cf('yardRep',"Rappresentante cantiere / Yard's rep",v.yardRep)}
+        ${cf('pages','Pagine / Pages',v.pages)}
+      </div>
+    </div>
+  </div>`;
+}
+function cf(k,label,val,type='text',full=false) {
+  return `<div class="cover-field${full?' full':''}">
+    <label>${label}</label>
+    <input type="${type}" value="${esc(val)}" data-vfield="${k}" placeholder="${label}">
+  </div>`;
+}
+function attachCoverEvents() {
+  document.querySelectorAll('[data-vfield]').forEach(el => {
+    el.addEventListener('input', e => {
+      state.vessel[e.target.dataset.vfield] = e.target.value;
+      document.getElementById('hdr-vessel').textContent = state.vessel.name || '— nessun yacht —';
+      scheduleSave();
+    });
+  });
+}
+
+// ─── DOCUMENTS ────────────────────────────────────────────────────────────────
+function renderDocuments(sec, def) {
+  const docs = sec.docs || [];
+  const rows = docs.map((d,i) => `<tr>
+    <td><input class="dfi" data-di="${i}" data-dk="doc" value="${esc(d.doc)}" placeholder="Documento..."></td>
+    <td><input class="dfi" data-di="${i}" data-dk="issuedBy" value="${esc(d.issuedBy)}" placeholder="..."></td>
+    <td><input class="dfi" data-di="${i}" data-dk="issueDate" value="${esc(d.issueDate)}" placeholder="..."></td>
+    <td><input class="dfi" data-di="${i}" data-dk="expiry" value="${esc(d.expiry)}" placeholder="..."></td>
+    <td><button class="del-doc" data-di="${i}">✕</button></td>
+  </tr>`).join('');
+
+  return `<div class="card ${sec.enabled?'':'sec-disabled'}">
+    <div class="card-hdr">
+      <div><h2>${def.title} <span class="en">/ ${def.titleEn}</span></h2></div>
+      <button class="tog ${sec.enabled?'':'off'}" onclick="toggleSection('${sec.id}')">${sec.enabled?'Includi ✓':'Escluso'}</button>
+    </div>
+    <div class="card-body">
+      <table class="docs-tbl">
+        <thead><tr><th>Documento</th><th>Rilasciato da / Issued by</th><th>Data rilascio / Issue date</th><th>N# Scadenza / Expiry</th><th></th></tr></thead>
+        <tbody id="docs-body">${rows}</tbody>
+      </table>
+      <button class="btn-add-doc" onclick="addDoc()">+ Documento</button>
+      ${renderNotesOutcome(sec)}
+    </div>
+  </div>`;
+}
+function attachDocEvents(sec) {
+  document.querySelectorAll('[data-di]').forEach(el => {
+    el.addEventListener('input', e => {
+      const i = +e.target.dataset.di, k = e.target.dataset.dk;
+      sec.docs[i][k] = e.target.value; scheduleSave();
+    });
+  });
+  document.querySelectorAll('.del-doc').forEach(el => {
+    el.addEventListener('click', e => {
+      const i = +e.target.dataset.di;
+      sec.docs.splice(i,1); renderSection(); scheduleSave();
+    });
+  });
+  attachNotesOutcomeEvents(sec);
+}
+function addDoc() {
+  const sec = getSection(currentTab);
+  sec.docs.push({doc:'',issuedBy:'',issueDate:'',expiry:''});
+  renderSection(); scheduleSave();
+}
+
+// ─── STANDARD SECTION ─────────────────────────────────────────────────────────
+function renderStandardSection(sec, def) {
+  const sn = def.showSN;
+  const rows = sec.rows.map((r,i) => `
+    <div class="frow" data-ri="${i}">
+      <span class="flabel">${esc(r.label)}</span>
+      <div class="fval">
+        <input class="fi row-val" data-ri="${i}" value="${esc(r.value)}" placeholder="—">
+        ${sn?`<button class="sn-btn" data-ri="${i}" title="Vedasi Note / See Notes">SN</button>`:''}
+        <button class="del-row" data-ri="${i}" title="Elimina riga">✕</button>
+      </div>
+    </div>`).join('');
+
+  const testsHTML = sec.tests.length ? `
+    <div class="sec-title">Tests</div>
+    <table class="tests-tbl">
+      <thead><tr><th>Type of test</th><th>Outcome</th><th></th></tr></thead>
+      <tbody id="tests-body">
+        ${sec.tests.map((t,i) => `<tr>
+          <td><input class="tfi" data-ti="${i}" data-tk="name" value="${esc(t.name)}" placeholder="Test..."></td>
+          <td><input class="tfi" data-ti="${i}" data-tk="outcome" value="${esc(t.outcome)}" placeholder="Outcome..."></td>
+          <td><button class="del-test" data-ti="${i}">✕</button></td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+    <button class="btn-add-test" onclick="addTest('${sec.id}')">+ Test</button>
+  ` : '';
+
+  return `<div class="card ${sec.enabled?'':'sec-disabled'}">
+    <div class="card-hdr">
+      <div><h2>${def.title} <span class="en">/ ${def.titleEn}</span></h2></div>
+      <button class="tog ${sec.enabled?'':'off'}" onclick="toggleSection('${sec.id}')">${sec.enabled?'Includi ✓':'Escluso'}</button>
+    </div>
+    <div class="card-body">
+      <div id="rows-container">${rows}</div>
+      <div class="row-actions">
+        <button class="btn-add" onclick="addRow('${sec.id}')">+ Riga</button>
+      </div>
+      ${testsHTML}
+      ${renderPhotos(sec)}
+      ${renderNotesOutcome(sec)}
+    </div>
+  </div>`;
+}
+
+function attachStandardEvents(sec, def) {
+  // Row values
+  document.querySelectorAll('.row-val').forEach(el => {
+    el.addEventListener('input', e => {
+      sec.rows[+e.target.dataset.ri].value = e.target.value; scheduleSave();
+    });
+  });
+  // SN buttons
+  document.querySelectorAll('.sn-btn').forEach(el => {
+    el.addEventListener('click', e => {
+      const i = +e.target.dataset.ri;
+      sec.rows[i].value = 'Vedasi Note / See Notes';
+      renderSection(); scheduleSave();
+    });
+  });
+  // Delete row
+  document.querySelectorAll('.del-row').forEach(el => {
+    el.addEventListener('click', e => {
+      sec.rows.splice(+e.target.dataset.ri, 1); renderSection(); scheduleSave();
+    });
+  });
+  // Tests
+  document.querySelectorAll('[data-ti]').forEach(el => {
+    el.addEventListener('input', e => {
+      const i = +e.target.dataset.ti, k = e.target.dataset.tk;
+      sec.tests[i][k] = e.target.value; scheduleSave();
+    });
+  });
+  document.querySelectorAll('.del-test').forEach(el => {
+    el.addEventListener('click', e => {
+      sec.tests.splice(+e.target.dataset.ti, 1); renderSection(); scheduleSave();
+    });
+  });
+  // Photos + notes/outcome
+  attachPhotoEvents(sec);
+  attachNotesOutcomeEvents(sec);
+}
+
+function addRow(secId) {
+  const label = prompt('Etichetta riga:');
+  if (label === null) return;
+  const sec = getSection(secId);
+  sec.rows.push({ label: label || 'Campo', value: '' });
+  renderSection(); scheduleSave();
+}
+
+function addTest(secId) {
+  const name = prompt('Nome test:');
+  if (name === null) return;
+  const sec = getSection(secId);
+  sec.tests.push({ name: name || 'Test', outcome: '' });
+  renderSection(); scheduleSave();
+}
+
+function toggleSection(id) {
+  const sec = getSection(id);
+  sec.enabled = !sec.enabled;
+  renderSection(); buildNav(); scheduleSave();
+}
+
+// ─── PHOTOS ───────────────────────────────────────────────────────────────────
+function renderPhotos(sec) {
+  const photos = sec.photos || [];
+  const grid = photos.map((p,i) => `
+    <div class="photo-item">
+      <img src="${p.dataUrl}" alt="foto">
+      <button class="photo-del" data-pi="${i}">✕</button>
+      <input type="text" class="photo-cap" data-pi="${i}" value="${esc(p.caption||'')}" placeholder="Didascalia...">
+    </div>`).join('');
+
+  return `<div class="photos-wrap">
+    <div class="sec-title">Fotografie / Photos</div>
+    <div class="photo-grid" id="photo-grid-${sec.id}">
+      ${grid}
+      <label class="photo-add" for="photo-input-${sec.id}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
+          <circle cx="12" cy="13" r="4"/>
+        </svg>
+        Aggiungi foto
+      </label>
+    </div>
+    <input type="file" class="photo-input" id="photo-input-${sec.id}" accept="image/*" capture="environment" multiple>
+  </div>`;
+}
+
+function attachPhotoEvents(sec) {
+  const input = document.getElementById(`photo-input-${sec.id}`);
+  if (input) {
+    input.addEventListener('change', async e => {
+      const files = Array.from(e.target.files);
+      for (const f of files) {
+        const dataUrl = await compressImage(f);
+        sec.photos.push({ dataUrl, caption:'' });
+      }
+      renderSection(); scheduleSave();
+      e.target.value = '';
+    });
+  }
+  document.querySelectorAll('.photo-del').forEach(el => {
+    el.addEventListener('click', e => {
+      sec.photos.splice(+e.target.dataset.pi, 1); renderSection(); scheduleSave();
+    });
+  });
+  document.querySelectorAll('.photo-cap').forEach(el => {
+    el.addEventListener('input', e => {
+      sec.photos[+e.target.dataset.pi].caption = e.target.value; scheduleSave();
+    });
+  });
+}
+
+async function compressImage(file, maxW=1400, q=0.82) {
+  return new Promise(res => {
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const img = new Image();
+      img.onload = () => {
+        const ratio = Math.min(maxW / img.width, 1);
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(img.width * ratio);
+        canvas.height = Math.round(img.height * ratio);
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        res(canvas.toDataURL('image/jpeg', q));
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+// ─── NOTES / OUTCOME ─────────────────────────────────────────────────────────
+function renderNotesOutcome(sec) {
+  return `<div class="no-wrap">
+    <div>
+      <label>Note</label>
+      <textarea class="notes-ta" placeholder="Note...">${esc(sec.notes||'')}</textarea>
+    </div>
+    <div>
+      <label>Giudizio / Outcome</label>
+      <textarea class="outcome-ta" placeholder="Giudizio...">${esc(sec.outcome||'')}</textarea>
+    </div>
+  </div>`;
+}
+function attachNotesOutcomeEvents(sec) {
+  const nt = document.querySelector('.notes-ta');
+  const ot = document.querySelector('.outcome-ta');
+  if (nt) nt.addEventListener('input', e => { sec.notes = e.target.value; scheduleSave(); });
+  if (ot) ot.addEventListener('input', e => { sec.outcome = e.target.value; scheduleSave(); });
+}
+
+// ─── SEA TRIAL ────────────────────────────────────────────────────────────────
+function renderSeaTrial(sec, def) {
+  const sr = sec.seaRuns;
+  const runsHTML = sr.runs.map((run, ri) => `
+    <div class="sea-run-card">
+      <div class="sea-run-hdr">
+        <span>Run ${ri+1} — RPM: ${run.rpm}</span>
+        <input type="text" value="${esc(run.rpm)}" data-run="${ri}" data-rk="rpm"
+          placeholder="RPM" style="width:80px;border:1px solid #ccc;border-radius:4px;padding:3px 5px;font-size:.8rem">
+      </div>
+      <div class="sea-run-body">
+        <table class="sea-tbl">
+          ${run.params.map((p,pi) => `<tr>
+            <td>${esc(p.name)}</td>
+            <td><input value="${esc(p.portVal)}" data-run="${ri}" data-pi="${pi}" data-pk="portVal" placeholder="PORT"></td>
+            <td><input value="${esc(p.stbdVal)}" data-run="${ri}" data-pi="${pi}" data-pk="stbdVal" placeholder="STBD"></td>
+          </tr>`).join('')}
+        </table>
+      </div>
+    </div>`).join('');
+
+  return `<div class="card ${sec.enabled?'':'sec-disabled'}">
+    <div class="card-hdr">
+      <div><h2>${def.title} <span class="en">/ ${def.titleEn}</span></h2></div>
+      <button class="tog ${sec.enabled?'':'off'}" onclick="toggleSection('${sec.id}')">${sec.enabled?'Includi ✓':'Escluso'}</button>
+    </div>
+    <div class="card-body">
+      <div class="sea-grid">${runsHTML}</div>
+      <div class="no-wrap" style="margin-top:14px">
+        <div><label>Top Speed Test</label>
+          <textarea class="sea-top" placeholder="Velocità massima, condizioni...">${esc(sr.topSpeed||'')}</textarea></div>
+        <div><label>Manoeuvrability / Manovrabilità</label>
+          <textarea class="sea-mano" placeholder="Bow thruster, turning circles...">${esc(sr.manoeuvrNotes||'')}</textarea></div>
+        <div><label>Note / Notes</label>
+          <textarea class="notes-ta" placeholder="Note generali...">${esc(sec.notes||'')}</textarea></div>
+      </div>
+      ${renderPhotos(sec)}
+    </div>
+  </div>`;
+}
+function attachSeaEvents(sec) {
+  const sr = sec.seaRuns;
+  document.querySelectorAll('[data-run][data-rk]').forEach(el => {
+    el.addEventListener('input', e => {
+      sr.runs[+e.target.dataset.run][e.target.dataset.rk] = e.target.value; scheduleSave();
+    });
+  });
+  document.querySelectorAll('[data-run][data-pi]').forEach(el => {
+    el.addEventListener('input', e => {
+      const ri=+e.target.dataset.run, pi=+e.target.dataset.pi, pk=e.target.dataset.pk;
+      sr.runs[ri].params[pi][pk] = e.target.value; scheduleSave();
+    });
+  });
+  const st = document.querySelector('.sea-top');
+  const sm = document.querySelector('.sea-mano');
+  const nt = document.querySelector('.notes-ta');
+  if(st) st.addEventListener('input', e=>{sr.topSpeed=e.target.value;scheduleSave();});
+  if(sm) sm.addEventListener('input', e=>{sr.manoeuvrNotes=e.target.value;scheduleSave();});
+  if(nt) nt.addEventListener('input', e=>{sec.notes=e.target.value;scheduleSave();});
+  attachPhotoEvents(sec);
+}
+
+// ─── RECOMMENDATIONS ─────────────────────────────────────────────────────────
+function renderRecommendations(sec, def) {
+  return `<div class="card ${sec.enabled?'':'sec-disabled'}">
+    <div class="card-hdr">
+      <div><h2>${def.title} <span class="en">/ ${def.titleEn}</span></h2></div>
+      <button class="tog ${sec.enabled?'':'off'}" onclick="toggleSection('${sec.id}')">${sec.enabled?'Includi ✓':'Escluso'}</button>
+    </div>
+    <div class="card-body">
+      <p style="font-size:.8rem;color:var(--muted);margin-bottom:10px">
+        Evidenziare in <strong style="color:red">ROSSO</strong> interventi necessari/urgenti —
+        in <strong style="color:#b45309">GIALLO</strong> lavori consigliati.
+      </p>
+      <div class="no-wrap">
+        <div><label>Lavori / Works</label>
+          <textarea class="rec-text" rows="10" placeholder="Elencare i lavori prescritti e consigliati...">${esc(sec.recommendText||'')}</textarea>
+        </div>
+      </div>
+      ${renderPhotos(sec)}
+    </div>
+  </div>`;
+}
+function attachRecEvents(sec) {
+  const rt = document.querySelector('.rec-text');
+  if(rt) rt.addEventListener('input', e=>{sec.recommendText=e.target.value;scheduleSave();});
+  attachPhotoEvents(sec);
+}
+
+// ─── CONCLUSIONS ─────────────────────────────────────────────────────────────
+function renderConclusions(sec, def) {
+  return `<div class="card ${sec.enabled?'':'sec-disabled'}">
+    <div class="card-hdr">
+      <div><h2>${def.title} <span class="en">/ ${def.titleEn}</span></h2></div>
+      <button class="tog ${sec.enabled?'':'off'}" onclick="toggleSection('${sec.id}')">${sec.enabled?'Includi ✓':'Escluso'}</button>
+    </div>
+    <div class="card-body">
+      <div class="no-wrap">
+        <div><label>Sommario / Summary</label>
+          <textarea class="concl-text" rows="8" placeholder="Valutazione economica, conclusioni generali...">${esc(sec.conclusionText||'')}</textarea>
+        </div>
+        <div><label>Allegati / Annexes</label>
+          <textarea class="annex-text" rows="5" placeholder="1) ... &#10;2) ...">${esc(sec.notes||'')}</textarea>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+function attachConclEvents(sec) {
+  const ct = document.querySelector('.concl-text');
+  const at = document.querySelector('.annex-text');
+  if(ct) ct.addEventListener('input', e=>{sec.conclusionText=e.target.value;scheduleSave();});
+  if(at) at.addEventListener('input', e=>{sec.notes=e.target.value;scheduleSave();});
+}
+
+// ─── NEW REPORT ──────────────────────────────────────────────────────────────
+async function newReport() {
+  if (!confirm('Creare un nuovo report? I dati attuali verranno eliminati.')) return;
+  await clearState();
+  state = defaultState();
+  currentTab = 'cover';
+  buildNav();
+  renderSection();
+  showToast('Nuovo report creato');
+}
+
+// ─── UTILS ───────────────────────────────────────────────────────────────────
+function esc(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function escRaw(str) { return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ─── WORD HTML EXPORT ────────────────────────────────────────────────────────
+function exportWord() {
+  showToast('Generazione in corso…');
+  setTimeout(() => {
+    try {
+      const html = buildWordHTML();
+      const blob = new Blob([html], { type: 'application/msword;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const fname = (state.vessel.name || 'Survey').replace(/[^a-zA-Z0-9_\- ]/g,'_');
+      a.href = url; a.download = `${fname}_report.doc`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('File scaricato! Aprire in Word e salvare come .docx');
+    } catch(e) {
+      console.error(e);
+      showToast('Errore: ' + e.message);
+    }
+  }, 100);
+}
+
+function buildWordHTML() {
+  const v = state.vessel;
+  const sectionsHTML = state.sections
+    .filter(sec => {
+      const def = getDef(sec.id);
+      return sec.enabled && def;
+    })
+    .map(sec => buildWordSection(sec))
+    .join('\n');
+
+  return `<html xmlns:o='urn:schemas-microsoft-com:office:office'
+    xmlns:w='urn:schemas-microsoft-com:office:word'
+    xmlns='http://www.w3.org/TR/REC-html40'>
+<head>
+<meta charset='utf-8'>
+<title>Survey Report — ${escRaw(v.name)}</title>
+<!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View></w:WordDocument></xml><![endif]-->
+<style>
+  @page { size:A4; margin:2cm 2cm 2.5cm 2cm }
+  body { font-family:Arial,sans-serif; font-size:10pt; color:#000 }
+  h1 { font-size:13pt; color:#1a3a5c; margin:0 0 4pt }
+  h2 { font-size:10pt; color:#fff; margin:0; font-weight:bold }
+  table { border-collapse:collapse; width:100%; margin-bottom:10pt }
+  td,th { border:1pt solid #999; padding:4pt 6pt; vertical-align:top; font-size:9pt }
+  .sec-hdr td { background:#1a3a5c; color:#fff; font-weight:bold; font-size:10pt }
+  .sec-hdr-en { font-size:8pt; font-weight:normal; opacity:.75 }
+  .lbl { background:#f0f4f8; width:45%; font-size:9pt; color:#333 }
+  .tests-hdr { background:#e8edf2; font-weight:bold; font-size:8pt }
+  .outcome-row td { background:#fefce8; font-weight:bold }
+  .photo-row td { text-align:center; padding:6pt }
+  .photo-row img { max-width:8cm; max-height:6cm; border:1pt solid #ccc }
+  .cover-tbl td { border:1pt solid #bbb; padding:5pt 8pt }
+  .cover-lbl { background:#e8edf2; font-weight:bold; font-size:9pt; width:35% }
+  p { margin:4pt 0 }
+</style>
+</head>
+<body>
+<!-- COVER -->
+<h1>Survey Report</h1>
+<table class="cover-tbl">
+  <tr><td class="cover-lbl">Nome Yacht / Vessel Name</td><td>${escRaw(v.name)}</td><td class="cover-lbl">Building N°</td><td>${escRaw(v.buildingNr)}</td></tr>
+  <tr><td class="cover-lbl">Luogo / Location</td><td>${escRaw(v.location)}</td><td class="cover-lbl">Data / Date</td><td>${escRaw(v.date)}</td></tr>
+  <tr><td class="cover-lbl">Rappresentante armatore / Owner's rep</td><td>${escRaw(v.ownerRep)}</td><td class="cover-lbl">Rappresentante cantiere / Yard's rep</td><td>${escRaw(v.yardRep)}</td></tr>
+</table>
+
+${sectionsHTML}
+
+<p style="margin-top:20pt;font-size:9pt;color:#666">La Spezia — Piero Ragazzi S.r.l.</p>
+</body></html>`;
+}
+
+function buildWordSection(sec) {
+  const def = getDef(sec.id);
+  if (!def) return '';
+  if (def.id === 'cover') return '';
+
+  const hdr = `<tr class="sec-hdr"><td colspan="2"><h2>${escRaw(def.title)} <span class="sec-hdr-en">/ ${escRaw(def.titleEn)}</span></h2></td></tr>`;
+
+  if (def.type === 'documents') return buildWordDocuments(sec, def, hdr);
+  if (def.type === 'sea_trial') return buildWordSeaTrial(sec, def);
+  if (def.type === 'recommendations') return buildWordRecommendations(sec, def);
+  if (def.type === 'conclusions') return buildWordConclusions(sec, def);
+
+  // Standard section
+  const rows = sec.rows.map(r =>
+    `<tr><td class="lbl">${escRaw(r.label)}</td><td>${escRaw(r.value)}</td></tr>`
+  ).join('');
+
+  const testsHTML = sec.tests.length ? `
+    <tr><td colspan="2" class="tests-hdr">TESTS</td></tr>
+    <tr><td class="tests-hdr">Type of test</td><td class="tests-hdr">Outcome</td></tr>
+    ${sec.tests.map(t=>`<tr><td>${escRaw(t.name)}</td><td>${escRaw(t.outcome)}</td></tr>`).join('')}
+  ` : '';
+
+  const photosHTML = buildWordPhotos(sec);
+  const notesRow = sec.notes ? `<tr><td class="lbl">Note</td><td>${escRaw(sec.notes).replace(/\n/g,'<br>')}</td></tr>` : '';
+  const outcomeRow = `<tr class="outcome-row"><td class="lbl"><strong>Giudizio / Outcome</strong></td><td><strong>${escRaw(sec.outcome)}</strong></td></tr>`;
+
+  return `<table>${hdr}${rows}${testsHTML}${notesRow}${outcomeRow}</table>${photosHTML}`;
+}
+
+function buildWordDocuments(sec, def, hdr) {
+  const rows = (sec.docs||[]).map(d =>
+    `<tr><td>${escRaw(d.doc)}</td><td>${escRaw(d.issuedBy)}</td><td>${escRaw(d.issueDate)}</td><td>${escRaw(d.expiry)}</td></tr>`
+  ).join('');
+  const notesRow = sec.notes ? `<tr><td class="lbl" colspan="4">Note: ${escRaw(sec.notes)}</td></tr>` : '';
+  return `<table>${hdr}
+    <tr class="tests-hdr"><td>Documento</td><td>Rilasciato da / Issued by</td><td>Data rilascio</td><td>Scadenza / Expiry</td></tr>
+    ${rows}${notesRow}
+  </table>`;
+}
+
+function buildWordSeaTrial(sec, def) {
+  const sr = sec.seaRuns;
+  const runsHTML = sr.runs.map((run, ri) => {
+    const params = run.params.map(p =>
+      `<tr><td class="lbl">${escRaw(p.name)}</td><td>PORT: ${escRaw(p.portVal)}</td><td>STBD: ${escRaw(p.stbdVal)}</td></tr>`
+    ).join('');
+    return `<tr><td colspan="3" style="background:#e8edf2;font-weight:bold">Run ${ri+1} — ${escRaw(run.rpm)} rpm</td></tr>${params}`;
+  }).join('');
+
+  const photosHTML = buildWordPhotos(sec);
+
+  return `<table>
+    <tr class="sec-hdr"><td colspan="3"><h2>${escRaw(def.title)} / ${escRaw(def.titleEn)}</h2></td></tr>
+    ${runsHTML}
+    ${sr.topSpeed?`<tr><td class="lbl">Top Speed</td><td colspan="2">${escRaw(sr.topSpeed)}</td></tr>`:''}
+    ${sr.manoeuvrNotes?`<tr><td class="lbl">Manoeuvrability</td><td colspan="2">${escRaw(sr.manoeuvrNotes)}</td></tr>`:''}
+    ${sec.notes?`<tr><td class="lbl">Note</td><td colspan="2">${escRaw(sec.notes)}</td></tr>`:''}
+  </table>${photosHTML}`;
+}
+
+function buildWordRecommendations(sec, def) {
+  return `<table>
+    <tr class="sec-hdr"><td><h2>${escRaw(def.title)} / ${escRaw(def.titleEn)}</h2></td></tr>
+    <tr><td style="white-space:pre-wrap">${escRaw(sec.recommendText||'').replace(/\n/g,'<br>')}</td></tr>
+  </table>${buildWordPhotos(sec)}`;
+}
+
+function buildWordConclusions(sec, def) {
+  return `<table>
+    <tr class="sec-hdr"><td><h2>${escRaw(def.title)} / ${escRaw(def.titleEn)}</h2></td></tr>
+    ${sec.conclusionText?`<tr><td style="white-space:pre-wrap">${escRaw(sec.conclusionText).replace(/\n/g,'<br>')}</td></tr>`:''}
+    ${sec.notes?`<tr><td class="lbl">Allegati / Annexes</td></tr><tr><td style="white-space:pre-wrap">${escRaw(sec.notes).replace(/\n/g,'<br>')}</td></tr>`:''}
+  </table>`;
+}
+
+function buildWordPhotos(sec) {
+  if (!sec.photos || !sec.photos.length) return '';
+  const cols = 3;
+  let html = '<table><tr>';
+  sec.photos.forEach((p, i) => {
+    if (i > 0 && i % cols === 0) html += '</tr><tr>';
+    html += `<td class="photo-row"><img src="${p.dataUrl}"><br><small>${escRaw(p.caption||'')}</small></td>`;
+  });
+  // fill remaining cells
+  const rem = sec.photos.length % cols;
+  if (rem > 0) for (let i=0; i<cols-rem; i++) html += '<td></td>';
+  html += '</tr></table>';
+  return html;
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+async function init() {
+  const saved = await loadState();
+  if (saved) {
+    state = saved;
+    // Migrate: add any missing sections
+    SECTIONS.forEach(def => {
+      if (!state.sections.find(s=>s.id===def.id)) {
+        state.sections.push({
+          id:def.id, enabled:true,
+          rows:def.rows.map(r=>({label:r,value:''})),
+          tests:def.tests.map(t=>({name:t,outcome:''})),
+          photos:[], notes:'', outcome:'',
+          docs:def.defaultDocs?def.defaultDocs.map(d=>({doc:d,issuedBy:'',issueDate:'',expiry:''})):undefined,
+          seaRuns:def.type==='sea_trial'?defaultSeaRuns():undefined,
+          recommendText:'', conclusionText:''
+        });
+      }
+    });
+  } else {
+    state = defaultState();
+  }
+  buildNav();
+  renderSection();
+}
+
+// Service Worker registration
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  });
+}
+
+init();
+</script>
+</body>
+</html>

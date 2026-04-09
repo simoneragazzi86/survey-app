@@ -1,0 +1,18 @@
+{
+  "name": "Survey Report — Piero Ragazzi",
+  "short_name": "Survey",
+  "description": "Pre-purchase yacht survey report app",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1a3a5c",
+  "theme_color": "#1a3a5c",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
