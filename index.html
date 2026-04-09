@@ -1036,16 +1036,21 @@ function buildWordHTML() {
   @page { size:A4; margin:2cm 2cm 2.5cm 2cm }
   body { font-family:Arial,sans-serif; font-size:10pt; color:#000 }
   h1 { font-size:13pt; color:#1a3a5c; margin:0 0 4pt }
-  h2 { font-size:10pt; color:#fff; margin:0; font-weight:bold }
   table { border-collapse:collapse; width:100%; margin-bottom:10pt }
-  td,th { border:1pt solid #999; padding:4pt 6pt; vertical-align:top; font-size:9pt }
-  .sec-hdr td { background:#1a3a5c; color:#fff; font-weight:bold; font-size:10pt }
-  .sec-hdr-en { font-size:8pt; font-weight:normal; opacity:.75 }
+  td,th { border:none; padding:4pt 6pt; vertical-align:top; font-size:9pt }
+  .sec-hdr td { background:#dce8f5; color:#1a3a5c; font-weight:bold; font-size:10pt; border:3pt double #1a3a5c; padding:6pt 8pt }
+  .sec-title-it { font-size:10pt; font-weight:bold; color:#1a3a5c; display:block }
+  .sec-title-en { font-size:8pt; font-weight:normal; color:#2d5a8e; display:block; margin-top:2pt }
   .lbl { background:#f0f4f8; width:45%; font-size:9pt; color:#333 }
-  .tests-hdr { background:#e8edf2; font-weight:bold; font-size:8pt }
-  .outcome-row td { background:#fefce8; font-weight:bold }
-  .photo-row td { text-align:center; padding:6pt }
-  .photo-row img { max-width:8cm; max-height:6cm; border:1pt solid #ccc }
+  .tests-hdr td { background:#e8edf2; font-weight:bold; font-size:8pt; border:1pt solid #bbb }
+  .tests-row td { border:1pt solid #ccc }
+  .outcome-row td { font-weight:bold }
+  .photo-cell { text-align:center; padding:6pt; width:50%; vertical-align:top }
+  .photo-cell img { max-width:9cm; max-height:7cm; border:1pt solid #ccc; display:block; margin:0 auto }
+  .photo-caption { border:1pt solid #bbb; padding:3pt 5pt; font-size:8pt; margin-top:4pt; min-height:18pt; width:100% }
+  .run-hdr td { background:#e8edf2; font-weight:bold; font-size:9pt; border:1pt solid #bbb }
+  .run-col-hdr td { background:#f4f7fb; font-weight:bold; font-size:8pt; text-align:center; border:1pt solid #bbb }
+  .run-data td { border:1pt solid #ddd }
   .cover-tbl td { border:1pt solid #bbb; padding:5pt 8pt }
   .cover-lbl { background:#e8edf2; font-weight:bold; font-size:9pt; width:35% }
   p { margin:4pt 0 }
@@ -1071,7 +1076,7 @@ function buildWordSection(sec) {
   if (!def) return '';
   if (def.id === 'cover') return '';
 
-  const hdr = `<tr class="sec-hdr"><td colspan="2"><h2>${escRaw(def.title)} <span class="sec-hdr-en">/ ${escRaw(def.titleEn)}</span></h2></td></tr>`;
+  const hdr = `<tr class="sec-hdr"><td colspan="2"><span class="sec-title-it">${escRaw(def.title)}</span><span class="sec-title-en">${escRaw(def.titleEn)}</span></td></tr>`;
 
   if (def.type === 'documents') return buildWordDocuments(sec, def, hdr);
   if (def.type === 'sea_trial') return buildWordSeaTrial(sec, def);
@@ -1084,9 +1089,9 @@ function buildWordSection(sec) {
   ).join('');
 
   const testsHTML = sec.tests.length ? `
-    <tr><td colspan="2" class="tests-hdr">TESTS</td></tr>
-    <tr><td class="tests-hdr">Type of test</td><td class="tests-hdr">Outcome</td></tr>
-    ${sec.tests.map(t=>`<tr><td>${escRaw(t.name)}</td><td>${escRaw(t.outcome)}</td></tr>`).join('')}
+    <tr class="tests-hdr"><td colspan="2">TESTS</td></tr>
+    <tr class="tests-hdr"><td>Type of test</td><td>Outcome</td></tr>
+    ${sec.tests.map(t=>`<tr class="tests-row"><td>${escRaw(t.name)}</td><td>${escRaw(t.outcome)}</td></tr>`).join('')}
   ` : '';
 
   const photosHTML = buildWordPhotos(sec);
@@ -1101,7 +1106,8 @@ function buildWordDocuments(sec, def, hdr) {
     `<tr><td>${escRaw(d.doc)}</td><td>${escRaw(d.issuedBy)}</td><td>${escRaw(d.issueDate)}</td><td>${escRaw(d.expiry)}</td></tr>`
   ).join('');
   const notesRow = sec.notes ? `<tr><td class="lbl" colspan="4">Note: ${escRaw(sec.notes)}</td></tr>` : '';
-  return `<table>${hdr}
+  return `<table>
+    <tr class="sec-hdr"><td colspan="4"><span class="sec-title-it">${escRaw(def.title)}</span><span class="sec-title-en">${escRaw(def.titleEn)}</span></td></tr>
     <tr class="tests-hdr"><td>Documento</td><td>Rilasciato da / Issued by</td><td>Data rilascio</td><td>Scadenza / Expiry</td></tr>
     ${rows}${notesRow}
   </table>`;
@@ -1110,33 +1116,34 @@ function buildWordDocuments(sec, def, hdr) {
 function buildWordSeaTrial(sec, def) {
   const sr = sec.seaRuns;
   const runsHTML = sr.runs.map((run, ri) => {
+    const colHdr = `<tr class="run-col-hdr"><td>Parametro</td><td>PORT</td><td>STBD</td></tr>`;
     const params = run.params.map(p =>
-      `<tr><td class="lbl">${escRaw(p.name)}</td><td>PORT: ${escRaw(p.portVal)}</td><td>STBD: ${escRaw(p.stbdVal)}</td></tr>`
+      `<tr class="run-data"><td class="lbl">${escRaw(p.name)}</td><td>${escRaw(p.portVal)}</td><td>${escRaw(p.stbdVal)}</td></tr>`
     ).join('');
-    return `<tr><td colspan="3" style="background:#e8edf2;font-weight:bold">Run ${ri+1} — ${escRaw(run.rpm)} rpm</td></tr>${params}`;
+    return `<tr class="run-hdr"><td colspan="3">Run ${ri+1} — ${escRaw(run.rpm)} rpm</td></tr>${colHdr}${params}`;
   }).join('');
 
   const photosHTML = buildWordPhotos(sec);
 
   return `<table>
-    <tr class="sec-hdr"><td colspan="3"><h2>${escRaw(def.title)} / ${escRaw(def.titleEn)}</h2></td></tr>
+    <tr class="sec-hdr"><td colspan="3"><span class="sec-title-it">${escRaw(def.title)}</span><span class="sec-title-en">${escRaw(def.titleEn)}</span></td></tr>
     ${runsHTML}
-    ${sr.topSpeed?`<tr><td class="lbl">Top Speed</td><td colspan="2">${escRaw(sr.topSpeed)}</td></tr>`:''}
-    ${sr.manoeuvrNotes?`<tr><td class="lbl">Manoeuvrability</td><td colspan="2">${escRaw(sr.manoeuvrNotes)}</td></tr>`:''}
-    ${sec.notes?`<tr><td class="lbl">Note</td><td colspan="2">${escRaw(sec.notes)}</td></tr>`:''}
+    ${sr.topSpeed?`<tr class="run-data"><td class="lbl">Top Speed</td><td colspan="2">${escRaw(sr.topSpeed)}</td></tr>`:''}
+    ${sr.manoeuvrNotes?`<tr class="run-data"><td class="lbl">Manoeuvrability</td><td colspan="2">${escRaw(sr.manoeuvrNotes)}</td></tr>`:''}
+    ${sec.notes?`<tr class="run-data"><td class="lbl">Note</td><td colspan="2">${escRaw(sec.notes)}</td></tr>`:''}
   </table>${photosHTML}`;
 }
 
 function buildWordRecommendations(sec, def) {
   return `<table>
-    <tr class="sec-hdr"><td><h2>${escRaw(def.title)} / ${escRaw(def.titleEn)}</h2></td></tr>
+    <tr class="sec-hdr"><td><span class="sec-title-it">${escRaw(def.title)}</span><span class="sec-title-en">${escRaw(def.titleEn)}</span></td></tr>
     <tr><td style="white-space:pre-wrap">${escRaw(sec.recommendText||'').replace(/\n/g,'<br>')}</td></tr>
   </table>${buildWordPhotos(sec)}`;
 }
 
 function buildWordConclusions(sec, def) {
   return `<table>
-    <tr class="sec-hdr"><td><h2>${escRaw(def.title)} / ${escRaw(def.titleEn)}</h2></td></tr>
+    <tr class="sec-hdr"><td><span class="sec-title-it">${escRaw(def.title)}</span><span class="sec-title-en">${escRaw(def.titleEn)}</span></td></tr>
     ${sec.conclusionText?`<tr><td style="white-space:pre-wrap">${escRaw(sec.conclusionText).replace(/\n/g,'<br>')}</td></tr>`:''}
     ${sec.notes?`<tr><td class="lbl">Allegati / Annexes</td></tr><tr><td style="white-space:pre-wrap">${escRaw(sec.notes).replace(/\n/g,'<br>')}</td></tr>`:''}
   </table>`;
@@ -1144,16 +1151,21 @@ function buildWordConclusions(sec, def) {
 
 function buildWordPhotos(sec) {
   if (!sec.photos || !sec.photos.length) return '';
-  const cols = 3;
-  let html = '<table><tr>';
-  sec.photos.forEach((p, i) => {
-    if (i > 0 && i % cols === 0) html += '</tr><tr>';
-    html += `<td class="photo-row"><img src="${p.dataUrl}"><br><small>${escRaw(p.caption||'')}</small></td>`;
-  });
-  // fill remaining cells
-  const rem = sec.photos.length % cols;
-  if (rem > 0) for (let i=0; i<cols-rem; i++) html += '<td></td>';
-  html += '</tr></table>';
+  const cols = 2;
+  let html = '<table>';
+  for (let i = 0; i < sec.photos.length; i += cols) {
+    html += '<tr>';
+    for (let j = 0; j < cols; j++) {
+      const p = sec.photos[i + j];
+      if (p) {
+        html += `<td class="photo-cell"><img src="${p.dataUrl}"><div class="photo-caption">${escRaw(p.caption||'')}</div></td>`;
+      } else {
+        html += '<td class="photo-cell"></td>';
+      }
+    }
+    html += '</tr>';
+  }
+  html += '</table>';
   return html;
 }
 
