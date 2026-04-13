@@ -1048,29 +1048,57 @@ function showToast(msg) {
 }
 
 // ─── WORD HTML EXPORT ────────────────────────────────────────────────────────
-function exportWord() {
-  showToast('Generazione in corso…');
-  setTimeout(() => {
-    try {
-      const html = buildWordHTML();
-      const blob = new Blob([html], { type: 'application/msword;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      const fname = (state.vessel.name || 'Survey').replace(/[^a-zA-Z0-9_\- ]/g,'_');
-      a.href = url; a.download = `${fname}_report.doc`;
-      a.click();
-      URL.revokeObjectURL(url);
-      showToast('File scaricato! Aprire in Word e salvare come .docx');
-    } catch(e) {
-      console.error(e);
-      showToast('Errore: ' + e.message);
-    }
-  }, 100);
+// Resize a photo to exact pixel dimensions for Word embedding.
+// Word ignores CSS/attribute width on base64 images and shows them at native size,
+// so the only reliable fix is to reduce the actual pixel dimensions.
+// Target: ~300px wide = 8cm at 96dpi, good for 2-per-row on A4.
+function resizeForWord(dataUrl, targetW = 300) {
+  return new Promise(res => {
+    const img = new Image();
+    img.onload = () => {
+      const ratio = Math.min(targetW / img.width, 1);
+      const c = document.createElement('canvas');
+      c.width  = Math.round(img.width  * ratio);
+      c.height = Math.round(img.height * ratio);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      res(c.toDataURL('image/jpeg', 0.88));
+    };
+    img.src = dataUrl;
+  });
 }
 
-function buildWordHTML() {
-  const v = state.vessel;
-  const sectionsHTML = state.sections
+async function exportWord() {
+  showToast('Ridimensionamento foto…');
+  try {
+    // Deep-clone state and replace all photo dataUrls with Word-sized versions
+    const wordState = JSON.parse(JSON.stringify(state));
+    for (const sec of wordState.sections) {
+      if (sec.photos && sec.photos.length) {
+        for (const p of sec.photos) {
+          p.dataUrl = await resizeForWord(p.dataUrl, 300);
+        }
+      }
+    }
+    showToast('Generazione documento…');
+    const html = buildWordHTML(wordState);
+    const blob = new Blob([html], { type: 'application/msword;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const fname = (state.vessel.name || 'Survey').replace(/[^a-zA-Z0-9_\- ]/g,'_');
+    a.href = url; a.download = `${fname}_report.doc`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('File scaricato! Aprire in Word e salvare come .docx');
+  } catch(e) {
+    console.error(e);
+    showToast('Errore: ' + e.message);
+  }
+}
+
+function buildWordHTML(stateData) {
+  if (!stateData) stateData = state;
+  const v = stateData.vessel;
+  const sectionsHTML = stateData.sections
     .filter(sec => {
       const def = getDef(sec.id);
       return sec.enabled && def;
