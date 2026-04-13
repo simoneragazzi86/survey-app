@@ -1209,7 +1209,7 @@ function buildWordPhotos(sec) {
     for (let j = 0; j < cols; j++) {
       const p = sec.photos[i + j];
       if (p) {
-        html += `<td class="photo-cell"><img src="${p.dataUrl}"><div class="photo-caption">${escRaw(p.caption||'')}</div></td>`;
+        html += `<td class="photo-cell"><img src="${p.dataUrl}" width="280" style="width:7.8cm;height:auto;display:block;margin:0 auto;border:1pt solid #ccc"><div class="photo-caption">${escRaw(p.caption||'')}</div></td>`;
       } else {
         html += '<td class="photo-cell"></td>';
       }
