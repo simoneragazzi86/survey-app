@@ -165,7 +165,10 @@ button{font-family:inherit;cursor:pointer}
 
 <div class="bottom-bar">
   <button class="btn-secondary" onclick="newReport()">Nuovo</button>
-  <button class="btn-primary" id="export-btn" onclick="exportWord()">⬇ Esporta Word</button>
+  <button class="btn-secondary" onclick="backupReport()" title="Esporta backup JSON">💾</button>
+  <label class="btn-secondary" for="restore-input" title="Importa backup JSON">📂</label>
+  <input type="file" id="restore-input" accept=".json" style="display:none" onchange="restoreReport(event)">
+  <button class="btn-primary" id="export-btn" onclick="exportWord()">⬇ Word</button>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -174,11 +177,11 @@ button{font-family:inherit;cursor:pointer}
 // ─── SECTION DEFINITIONS ────────────────────────────────────────────────────
 const SECTIONS = [
   {
-    id:'cover', title:'DATI YACHT', titleEn:'VESSEL DETAILS', type:'cover',
-    showSN:false, rows:[], tests:[]
+    id:'cover', title:'DATI YACHT', titleEn:'VESSEL DETAILS', navLabel:'YACHT',
+    type:'cover', showSN:false, rows:[], tests:[]
   },
   {
-    id:'inspection', title:'DETTAGLI ISPEZIONI', titleEn:'ABOUT THE INSPECTIONS',
+    id:'inspection', title:'DETTAGLI ISPEZIONI', titleEn:'ABOUT THE INSPECTIONS', navLabel:'ISPEZIONI',
     showSN:false,
     rows:[
       'Luogo della vista / Place of survey',
@@ -189,7 +192,7 @@ const SECTIONS = [
     ], tests:[]
   },
   {
-    id:'documents', title:'DOCUMENTI', titleEn:'DOCUMENTS',
+    id:'documents', title:'DOCUMENTI', titleEn:'DOCUMENTS', navLabel:'DOCUMENTI',
     type:'documents', showSN:false, rows:[], tests:[],
     defaultDocs:[
       'Certificate of Registry',
@@ -199,7 +202,7 @@ const SECTIONS = [
     ]
   },
   {
-    id:'vessel_id', title:"DATI DELL'UNITÀ", titleEn:'IDENTIFYING DETAILS',
+    id:'vessel_id', title:"DATI DELL'UNITÀ", titleEn:'IDENTIFYING DETAILS', navLabel:"DATI UNITÀ",
     showSN:true,
     rows:[
       "Costruttore / Shipbuilder","Anno di costruzione / Year of construction",
@@ -208,7 +211,7 @@ const SECTIONS = [
     ], tests:[]
   },
   {
-    id:'hull_data', title:'DATI DELLO SCAFO', titleEn:'DETAILS OF THE HULL',
+    id:'hull_data', title:'DATI DELLO SCAFO', titleEn:'DETAILS OF THE HULL', navLabel:'SCAFO',
     showSN:true,
     rows:[
       "Lunghezza / Length, overall (mt)","Larghezza / Breadth, overall (mt)",
@@ -217,7 +220,7 @@ const SECTIONS = [
     ], tests:[]
   },
   {
-    id:'main_engines', title:'MOTORI PRINCIPALI', titleEn:'MAIN ENGINES',
+    id:'main_engines', title:'MOTORI PRINCIPALI', titleEn:'MAIN ENGINES', navLabel:'MOTORI',
     showSN:true,
     rows:[
       "Tipo di motore / Engine type","Numero di motori / Engine nr",
@@ -228,7 +231,7 @@ const SECTIONS = [
     tests:['Avviamento / Start up','Funzionamento / Run','Inversione / Gear reverse']
   },
   {
-    id:'fuel_sys', title:'IMPIANTO COMBUSTIBILE', titleEn:'FUEL SYSTEM',
+    id:'fuel_sys', title:'IMPIANTO COMBUSTIBILE', titleEn:'FUEL SYSTEM', navLabel:'COMBUSTIBILE',
     showSN:true,
     rows:[
       "Numero casse / Nr of tanks","Pompa di trasferimento / Transfer pumps",
@@ -237,7 +240,7 @@ const SECTIONS = [
     tests:['Pompa di trasferimento / Transfer pumps','Sistema di depurazione / Fuel depuration']
   },
   {
-    id:'fire_sys', title:'IMPIANTO ANTINCENDIO', titleEn:'FIRE SYSTEM',
+    id:'fire_sys', title:'IMPIANTO ANTINCENDIO', titleEn:'FIRE SYSTEM', navLabel:'ANTINCENDIO',
     showSN:true,
     rows:[
       "Tipo sensori / Type of sensor","Agente estinguente / Firefighting system",
@@ -246,7 +249,7 @@ const SECTIONS = [
     tests:['Pompa incendio / Fire pump','Motopompa d\'emergenza / Emergency fire pump']
   },
   {
-    id:'exhaust', title:'IMPIANTO GAS SCARICO', titleEn:'EXHAUST SYSTEM',
+    id:'exhaust', title:'IMPIANTO GAS SCARICO', titleEn:'EXHAUST SYSTEM', navLabel:'GAS SCARICO',
     showSN:true,
     rows:[
       "Materiale di costr. / Material","Fascettatura / Clamps",
@@ -254,13 +257,13 @@ const SECTIONS = [
     tests:['Esame visivo / Visual checks','Perdite / Leaks']
   },
   {
-    id:'ventilation', title:'IMPIANTO VENTILAZIONE', titleEn:'VENTILATION SYSTEM',
+    id:'ventilation', title:'IMPIANTO VENTILAZIONE', titleEn:'VENTILATION SYSTEM', navLabel:'VENTILAZIONE',
     showSN:true,
     rows:["Produttore / Fan/extractors manufacturer"],
     tests:['Funzion. Ventilazione / Fans run','Funzion. Estrattori / Extractors run']
   },
   {
-    id:'electrical', title:'GENERATORI E IMPIANTO ELETTRICO', titleEn:'GEN SETS AND ELECTRICAL',
+    id:'electrical', title:'GENERATORI E IMPIANTO ELETTRICO', titleEn:'GEN SETS AND ELECTRICAL', navLabel:'ELETTRICO',
     showSN:true,
     rows:[
       "Produttore / Manufacturer","Modello / Model",
@@ -269,7 +272,7 @@ const SECTIONS = [
     tests:['Accensione / Start up','Funzionamento / Run','Parallelo / Parallel','Seamless transfer']
   },
   {
-    id:'hull_uw', title:'OPERA VIVA', titleEn:'HULL (UNDERWATER)',
+    id:'hull_uw', title:'OPERA VIVA', titleEn:'HULL (UNDERWATER)', navLabel:'OPERA VIVA',
     showSN:true,
     rows:[
       "Materiale / Building material","Antifouling",
@@ -278,7 +281,7 @@ const SECTIONS = [
     ], tests:[]
   },
   {
-    id:'propellers', title:'ELICHE ED ASSI', titleEn:'PROPELLERS & SHAFTS',
+    id:'propellers', title:'ELICHE ED ASSI', titleEn:'PROPELLERS & SHAFTS', navLabel:'ELICHE',
     showSN:true,
     rows:[
       "Tipo e materiale / Type and material","Test passo / Pitch Test",
@@ -289,7 +292,7 @@ const SECTIONS = [
     ], tests:[]
   },
   {
-    id:'rudders', title:'TIMONI', titleEn:'RUDDERS',
+    id:'rudders', title:'TIMONI', titleEn:'RUDDERS', navLabel:'TIMONI',
     showSN:true,
     rows:[
       "Tipo / Type","Materiale di costr. / Material",
@@ -298,7 +301,7 @@ const SECTIONS = [
     ], tests:[]
   },
   {
-    id:'topsides', title:'OPERA MORTA', titleEn:'TOPSIDES',
+    id:'topsides', title:'OPERA MORTA', titleEn:'TOPSIDES', navLabel:'OPERA MORTA',
     showSN:true,
     rows:[
       "Materiale costr. / Material","Condizioni / Condition",
@@ -306,7 +309,7 @@ const SECTIONS = [
     ], tests:[]
   },
   {
-    id:'decks', title:'PONTI E SOVRASTRUTTURA', titleEn:'DECKS & SUPERSTRUCTURE',
+    id:'decks', title:'PONTI E SOVRASTRUTTURA', titleEn:'DECKS & SUPERSTRUCTURE', navLabel:'PONTI',
     showSN:true,
     rows:[
       "Materiale costr. / Material","Condizioni / Condition",
@@ -316,7 +319,7 @@ const SECTIONS = [
     ], tests:[]
   },
   {
-    id:'deck_rig', title:'ATTREZZATURA DI COPERTA', titleEn:'DECK RIGGING',
+    id:'deck_rig', title:'ATTREZZATURA DI COPERTA', titleEn:'DECK RIGGING', navLabel:'COPERTA',
     showSN:true,
     rows:[
       "Falchetta / Gunwale","Battagliola / Railing stanchions",
@@ -325,7 +328,7 @@ const SECTIONS = [
     ], tests:[]
   },
   {
-    id:'bilge', title:'IMPIANTO SENTINA', titleEn:'BILGE SYSTEM',
+    id:'bilge', title:'IMPIANTO SENTINA', titleEn:'BILGE SYSTEM', navLabel:'SENTINA',
     showSN:true,
     rows:[
       "Pompe sentina / Bilge pumps","Pompa sentina d'emerg. / Emergency bilge pumps",
@@ -333,7 +336,7 @@ const SECTIONS = [
     tests:['Allarme di alto livello / High level alarm','Funzionamento pompe / Pumps run']
   },
   {
-    id:'water_sys', title:'IMPIANTI VARI ACQUE', titleEn:'WATER SYSTEMS',
+    id:'water_sys', title:'IMPIANTI VARI ACQUE', titleEn:'WATER SYSTEMS', navLabel:'ACQUE VARIE',
     showSN:true,
     rows:[
       "Materiale di costr. / Material","Prese a mare motori / Engine raw water intake",
@@ -342,13 +345,13 @@ const SECTIONS = [
     ], tests:[]
   },
   {
-    id:'freshwater', title:'IMPIANTO ACQUA DOLCE', titleEn:'FRESH WATER SYSTEM',
+    id:'freshwater', title:'IMPIANTO ACQUA DOLCE', titleEn:'FRESH WATER SYSTEM', navLabel:'ACQUA DOLCE',
     showSN:true,
     rows:["Boiler","Gruppo autoclave / Fresh water pump","Dissalatore / Watermaker"],
     tests:['Boiler','Gruppo autoclave / Fresh water pump','Dissalatore / Watermaker']
   },
   {
-    id:'sewage', title:'IMPIANTO ACQUE NERE E GRIGIE', titleEn:'BLACK & GREY WATER',
+    id:'sewage', title:'IMPIANTO ACQUE NERE E GRIGIE', titleEn:'BLACK & GREY WATER', navLabel:'ACQUE NERE',
     showSN:true,
     rows:[
       "Trattamento acque / Water treatment","Maceratore / Macerator pump",
@@ -357,7 +360,7 @@ const SECTIONS = [
     tests:['Scarico wc / Toilets flushing','Trattamento acque nere / Water treatment','Pompe acque nere / BW discharge pump','Pompe acque grigie / Grey water discharge pumps']
   },
   {
-    id:'stabilizers', title:'STABILIZZATORI', titleEn:'STABILIZING SYSTEM',
+    id:'stabilizers', title:'STABILIZZATORI', titleEn:'STABILIZING SYSTEM', navLabel:'STABILIZ.',
     showSN:true,
     rows:[
       "Costruttore / Manufacturer","Modello / Model",
@@ -366,7 +369,7 @@ const SECTIONS = [
     tests:['Navigation mode','At anchor mode']
   },
   {
-    id:'ac', title:'IMPIANTO ARIA CONDIZIONATA', titleEn:'AC SYSTEM',
+    id:'ac', title:'IMPIANTO ARIA CONDIZIONATA', titleEn:'AC SYSTEM', navLabel:'A/C',
     showSN:true,
     rows:[
       "Produttore / Manufacturer","Chillers",
@@ -375,12 +378,12 @@ const SECTIONS = [
     tests:['Avviamento / System start up','Funzionamento / System run']
   },
   {
-    id:'hydraulics', title:'SISTEMI IDRAULICI', titleEn:'HYDRAULICS',
+    id:'hydraulics', title:'SISTEMI IDRAULICI', titleEn:'HYDRAULICS', navLabel:'IDRAULICI',
     showSN:true, rows:[],
     tests:['Bow thruster','Stern Thruster','Passerella / Gangway','Tonneggi / Capstains','Gruetta / Tender crane','Portellone poppa / Transom door']
   },
   {
-    id:'galley', title:'ELETTRODOMESTICI CUCINA/LAVANDERIA', titleEn:'GALLEY/LAUNDRY APPLIANCES',
+    id:'galley', title:'ELETTRODOMESTICI CUCINA/LAVANDERIA', titleEn:'GALLEY/LAUNDRY APPLIANCES', navLabel:'CUCINA',
     showSN:true,
     rows:[
       "Piano cottura / Hob","Grill + friggitrice / Grill + frier","Frigo / Fridge",
@@ -389,7 +392,7 @@ const SECTIONS = [
     ], tests:[]
   },
   {
-    id:'entertainment', title:'ENTERTAINMENT', titleEn:'ENTERTAINMENT',
+    id:'entertainment', title:'ENTERTAINMENT', titleEn:'ENTERTAINMENT', navLabel:'ENTERTAIN.',
     showSN:true,
     rows:[
       "Sun Deck / Flying bridge","UD saloon","Main saloon","Owner's cabin",
@@ -397,13 +400,13 @@ const SECTIONS = [
     ], tests:[]
   },
   {
-    id:'cctv', title:'TVCC', titleEn:'CCTV',
+    id:'cctv', title:'TVCC', titleEn:'CCTV', navLabel:'TVCC',
     showSN:true,
     rows:["Nr. Telecamere / Cameras, nr","Tipo e posizione / Type and position"],
     tests:['Funzionamento / System start up and run']
   },
   {
-    id:'navigation', title:'NAVIGAZIONE E COMUNICAZIONE', titleEn:'NAVIGATION & COMMUNICATION',
+    id:'navigation', title:'NAVIGAZIONE E COMUNICAZIONE', titleEn:'NAVIGATION & COMMUNICATION', navLabel:'NAVIGAZ.',
     showSN:true,
     rows:[
       "Bussola magn. / Mag. compass","Gyro","GPS","Chart/radar plotter",
@@ -416,22 +419,22 @@ const SECTIONS = [
     ], tests:[]
   },
   {
-    id:'sea_trial', title:'PROVE IN NAVIGAZIONE', titleEn:'SEA TRIALS',
+    id:'sea_trial', title:'PROVE IN NAVIGAZIONE', titleEn:'SEA TRIALS', navLabel:'SEA TRIAL',
     type:'sea_trial', showSN:true, rows:[], tests:[]
   },
   {
-    id:'interior', title:'INTERNI', titleEn:'INTERIOR LAYOUT',
+    id:'interior', title:'INTERNI', titleEn:'INTERIOR LAYOUT', navLabel:'INTERNI',
     showSN:true,
     rows:[
       "Lay-out","Materiale costr. / Material","Condizioni arredo / Condition",
     ], tests:[]
   },
   {
-    id:'recommendations', title:'LAVORI PRESCRITTI E CONSIGLIATI', titleEn:'RECOMMENDATIONS',
+    id:'recommendations', title:'LAVORI PRESCRITTI E CONSIGLIATI', titleEn:'RECOMMENDATIONS', navLabel:'LAVORI',
     type:'recommendations', showSN:false, rows:[], tests:[]
   },
   {
-    id:'conclusions', title:'CONCLUSIONI', titleEn:'SUMMARY',
+    id:'conclusions', title:'CONCLUSIONI', titleEn:'SUMMARY', navLabel:'CONCLUSIONI',
     type:'conclusions', showSN:false, rows:[], tests:[]
   },
 ];
@@ -546,7 +549,7 @@ function buildNav() {
     const isActive = s.id === currentTab;
     const isDisabled = !sec.enabled;
     return `<button class="nav-btn${isActive?' active':''}${isDisabled?' disabled-sec':''}"
-      onclick="switchTab('${s.id}')">${s.title.split(' ')[0]}</button>`;
+      onclick="switchTab('${s.id}')">${s.navLabel||s.title.split(' ')[0]}</button>`;
   }).join('');
   // scroll active tab into view
   setTimeout(() => {
@@ -787,7 +790,7 @@ function renderPhotos(sec) {
         Aggiungi foto
       </label>
     </div>
-    <input type="file" class="photo-input" id="photo-input-${sec.id}" accept="image/*" capture="environment" multiple>
+    <input type="file" class="photo-input" id="photo-input-${sec.id}" accept="image/*" multiple>
   </div>`;
 }
 
@@ -971,6 +974,56 @@ function attachConclEvents(sec) {
 }
 
 // ─── NEW REPORT ──────────────────────────────────────────────────────────────
+// ─── BACKUP / RESTORE ────────────────────────────────────────────────────────
+function backupReport() {
+  const json = JSON.stringify(state, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const fname = (state.vessel.name || 'Survey').replace(/[^a-zA-Z0-9_\- ]/g,'_');
+  const date = new Date().toISOString().slice(0,10);
+  a.href = url; a.download = `${fname}_backup_${date}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('Backup esportato');
+}
+
+function restoreReport(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async e => {
+    try {
+      const restored = JSON.parse(e.target.result);
+      if (!restored.vessel || !restored.sections) throw new Error('File non valido');
+      if (!confirm(`Ripristinare il backup "${restored.vessel.name || 'senza nome'}"? I dati attuali verranno sostituiti.`)) return;
+      state = restored;
+      // Migrate: add missing sections
+      SECTIONS.forEach(def => {
+        if (!state.sections.find(s=>s.id===def.id)) {
+          state.sections.push({
+            id:def.id, enabled:true,
+            rows:def.rows.map(r=>({label:r,value:''})),
+            tests:def.tests.map(t=>({name:t,outcome:''})),
+            photos:[], notes:'', outcome:'',
+            docs:def.defaultDocs?def.defaultDocs.map(d=>({doc:d,issuedBy:'',issueDate:'',expiry:''})):undefined,
+            seaRuns:def.type==='sea_trial'?defaultSeaRuns():undefined,
+            recommendText:'', conclusionText:''
+          });
+        }
+      });
+      await saveState();
+      currentTab = 'cover';
+      buildNav(); renderSection();
+      showToast('Backup ripristinato');
+    } catch(err) {
+      showToast('Errore: ' + err.message);
+    }
+    event.target.value = '';
+  };
+  reader.readAsText(file);
+}
+
 async function newReport() {
   if (!confirm('Creare un nuovo report? I dati attuali verranno eliminati.')) return;
   await clearState();
@@ -1034,25 +1087,23 @@ function buildWordHTML() {
 <!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View></w:WordDocument></xml><![endif]-->
 <style>
   @page { size:A4; margin:2cm 2cm 2.5cm 2cm }
-  body { font-family:Arial,sans-serif; font-size:10pt; color:#000 }
+  body { font-family:Arial,sans-serif; font-size:10pt; color:#1a3a5c }
   h1 { font-size:13pt; color:#1a3a5c; margin:0 0 4pt }
   table { border-collapse:collapse; width:100%; margin-bottom:10pt }
-  td,th { border:none; padding:4pt 6pt; vertical-align:top; font-size:9pt }
-  .sec-hdr td { background:#dce8f5; color:#1a3a5c; font-weight:bold; font-size:10pt; border:3pt double #1a3a5c; padding:6pt 8pt }
-  .sec-title-it { font-size:10pt; font-weight:bold; color:#1a3a5c; display:block }
-  .sec-title-en { font-size:8pt; font-weight:normal; color:#2d5a8e; display:block; margin-top:2pt }
-  .lbl { background:#f0f4f8; width:45%; font-size:9pt; color:#333 }
-  .tests-hdr td { background:#e8edf2; font-weight:bold; font-size:8pt; border:1pt solid #bbb }
-  .tests-row td { border:1pt solid #ccc }
+  td,th { border:none; padding:4pt 6pt; vertical-align:top; font-size:9pt; color:#1a3a5c }
+  .sec-hdr td { background:#dce8f5; color:#1a3a5c; font-weight:bold; font-size:10pt; border:3pt double #1a3a5c; padding:8pt; text-align:center }
+  .lbl { width:45%; font-size:9pt }
+  .tests-hdr td { font-weight:bold; font-size:8pt; border:1pt solid #bbb; text-align:center }
+  .tests-row td { border:1pt solid #ddd }
   .outcome-row td { font-weight:bold }
   .photo-cell { text-align:center; padding:6pt; width:50%; vertical-align:top }
-  .photo-cell img { max-width:9cm; max-height:7cm; border:1pt solid #ccc; display:block; margin:0 auto }
-  .photo-caption { border:1pt solid #bbb; padding:3pt 5pt; font-size:8pt; margin-top:4pt; min-height:18pt; width:100% }
-  .run-hdr td { background:#e8edf2; font-weight:bold; font-size:9pt; border:1pt solid #bbb }
-  .run-col-hdr td { background:#f4f7fb; font-weight:bold; font-size:8pt; text-align:center; border:1pt solid #bbb }
+  .photo-cell img { width:7.8cm; border:1pt solid #ccc; display:block; margin:0 auto }
+  .photo-caption { border:1pt solid #bbb; padding:3pt 5pt; font-size:8pt; margin-top:4pt; min-height:18pt; width:100%; text-align:left }
+  .run-hdr td { font-weight:bold; font-size:9pt; border:1pt solid #bbb; text-align:center }
+  .run-col-hdr td { font-weight:bold; font-size:8pt; text-align:center; border:1pt solid #bbb }
   .run-data td { border:1pt solid #ddd }
   .cover-tbl td { border:1pt solid #bbb; padding:5pt 8pt }
-  .cover-lbl { background:#e8edf2; font-weight:bold; font-size:9pt; width:35% }
+  .cover-lbl { font-weight:bold; font-size:9pt; width:35% }
   p { margin:4pt 0 }
 </style>
 </head>
@@ -1076,7 +1127,7 @@ function buildWordSection(sec) {
   if (!def) return '';
   if (def.id === 'cover') return '';
 
-  const hdr = `<tr class="sec-hdr"><td colspan="2"><span class="sec-title-it">${escRaw(def.title)}</span><span class="sec-title-en">${escRaw(def.titleEn)}</span></td></tr>`;
+  const hdr = `<tr class="sec-hdr"><td colspan="2"><strong>${escRaw(def.title)}</strong><br><span style="font-size:8pt;font-weight:normal">${escRaw(def.titleEn)}</span></td></tr>`;
 
   if (def.type === 'documents') return buildWordDocuments(sec, def, hdr);
   if (def.type === 'sea_trial') return buildWordSeaTrial(sec, def);
@@ -1107,7 +1158,7 @@ function buildWordDocuments(sec, def, hdr) {
   ).join('');
   const notesRow = sec.notes ? `<tr><td class="lbl" colspan="4">Note: ${escRaw(sec.notes)}</td></tr>` : '';
   return `<table>
-    <tr class="sec-hdr"><td colspan="4"><span class="sec-title-it">${escRaw(def.title)}</span><span class="sec-title-en">${escRaw(def.titleEn)}</span></td></tr>
+    <tr class="sec-hdr"><td colspan="4"><strong>${escRaw(def.title)}</strong><br><span style="font-size:8pt;font-weight:normal">${escRaw(def.titleEn)}</span></td></tr>
     <tr class="tests-hdr"><td>Documento</td><td>Rilasciato da / Issued by</td><td>Data rilascio</td><td>Scadenza / Expiry</td></tr>
     ${rows}${notesRow}
   </table>`;
@@ -1126,7 +1177,7 @@ function buildWordSeaTrial(sec, def) {
   const photosHTML = buildWordPhotos(sec);
 
   return `<table>
-    <tr class="sec-hdr"><td colspan="3"><span class="sec-title-it">${escRaw(def.title)}</span><span class="sec-title-en">${escRaw(def.titleEn)}</span></td></tr>
+    <tr class="sec-hdr"><td colspan="3"><strong>${escRaw(def.title)}</strong><br><span style="font-size:8pt;font-weight:normal">${escRaw(def.titleEn)}</span></td></tr>
     ${runsHTML}
     ${sr.topSpeed?`<tr class="run-data"><td class="lbl">Top Speed</td><td colspan="2">${escRaw(sr.topSpeed)}</td></tr>`:''}
     ${sr.manoeuvrNotes?`<tr class="run-data"><td class="lbl">Manoeuvrability</td><td colspan="2">${escRaw(sr.manoeuvrNotes)}</td></tr>`:''}
@@ -1136,14 +1187,14 @@ function buildWordSeaTrial(sec, def) {
 
 function buildWordRecommendations(sec, def) {
   return `<table>
-    <tr class="sec-hdr"><td><span class="sec-title-it">${escRaw(def.title)}</span><span class="sec-title-en">${escRaw(def.titleEn)}</span></td></tr>
+    <tr class="sec-hdr"><td><strong>${escRaw(def.title)}</strong><br><span style="font-size:8pt;font-weight:normal">${escRaw(def.titleEn)}</span></td></tr>
     <tr><td style="white-space:pre-wrap">${escRaw(sec.recommendText||'').replace(/\n/g,'<br>')}</td></tr>
   </table>${buildWordPhotos(sec)}`;
 }
 
 function buildWordConclusions(sec, def) {
   return `<table>
-    <tr class="sec-hdr"><td><span class="sec-title-it">${escRaw(def.title)}</span><span class="sec-title-en">${escRaw(def.titleEn)}</span></td></tr>
+    <tr class="sec-hdr"><td><strong>${escRaw(def.title)}</strong><br><span style="font-size:8pt;font-weight:normal">${escRaw(def.titleEn)}</span></td></tr>
     ${sec.conclusionText?`<tr><td style="white-space:pre-wrap">${escRaw(sec.conclusionText).replace(/\n/g,'<br>')}</td></tr>`:''}
     ${sec.notes?`<tr><td class="lbl">Allegati / Annexes</td></tr><tr><td style="white-space:pre-wrap">${escRaw(sec.notes).replace(/\n/g,'<br>')}</td></tr>`:''}
   </table>`;
