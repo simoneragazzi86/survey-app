@@ -1088,7 +1088,7 @@ async function exportWord() {
     a.href = url; a.download = `${fname}_report.doc`;
     a.click();
     URL.revokeObjectURL(url);
-    showToast('File scaricato! Aprire in Word e salvare come .docx');
+    showToast('File scaricato (v3)! Aprire in Word e salvare come .docx');
   } catch(e) {
     console.error(e);
     showToast('Errore: ' + e.message);
@@ -1236,7 +1236,7 @@ function buildWordPhotos(sec) {
   // Cella 8,3 cm con margini interni 0,2 cm → area utile ~7,9 cm,
   // pari alla larghezza delle foto esportate dall'app (300 px = 7,94 cm a 96 dpi).
   const cellStyle = 'width:8.3cm;padding:4pt 0.2cm;text-align:center;vertical-align:top';
-  let html = '<table class="photo-tbl" width="628" style="table-layout:fixed;width:16.6cm;border-collapse:collapse">'
+  let html = '<table class="photo-tbl" width="628" style="table-layout:fixed;mso-table-layout-alt:fixed;width:16.6cm;border-collapse:collapse;mso-padding-alt:0cm 0.2cm 0cm 0.2cm">'
            + '<col width="314" style="width:8.3cm"><col width="314" style="width:8.3cm">';
   for (let i = 0; i < sec.photos.length; i += cols) {
     html += '<tr>';
