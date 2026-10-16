@@ -1,5 +1,5 @@
 // Survey Report PWA — Service Worker
-const CACHE = 'survey-v8';
+const CACHE = 'survey-v9';
 const ASSETS = ['/', '/index.html', '/manifest.json'];
 
 self.addEventListener('install', e => {

@@ -1059,9 +1059,9 @@ const DX = {
   get CONTENT_W() { return this.PAGE_W - this.MARG_L - this.MARG_R; }, // 9638 twip = 17 cm
   PHOTO_CELL_MAR: 113,                    // 0,2 cm a sinistra e a destra
 };
-DX.PHOTO_GAP_W = 284;                                           // spazio tra le due colonne (0,5 cm)
-DX.PHOTO_COL_W = Math.floor((DX.CONTENT_W - DX.PHOTO_GAP_W) / 2); // 4677 twip ≈ 8,25 cm
-DX.PHOTO_IMG_EMU = (DX.PHOTO_COL_W - 2 * DX.PHOTO_CELL_MAR) * 635; // larghezza utile cella in EMU
+DX.PHOTO_COL_W = Math.floor(DX.CONTENT_W / 2);                  // 4819 twip = 8,5 cm
+DX.PHOTO_CELL_SPACING = 57;                                     // distanza tra i box (0,1 cm per lato)
+DX.PHOTO_IMG_EMU = (DX.PHOTO_COL_W - 2 * DX.PHOTO_CELL_MAR - 2 * DX.PHOTO_CELL_SPACING) * 635; // larghezza utile cella in EMU
 
 function xe(s) {
   return String(s == null ? '' : s)
@@ -1078,8 +1078,8 @@ function dxRun(text, o = {}) {
 }
 
 function dxPara(runs, o = {}) {
-  const pPr = `<w:pPr>${o.border?`<w:pBdr><w:top w:val="single" w:sz="4" w:space="2" w:color="BBBBBB"/><w:left w:val="single" w:sz="4" w:space="4" w:color="BBBBBB"/><w:bottom w:val="single" w:sz="4" w:space="2" w:color="BBBBBB"/><w:right w:val="single" w:sz="4" w:space="4" w:color="BBBBBB"/></w:pBdr>`:''}`
-    + `${o.keepNext?'<w:keepNext/>':''}<w:spacing w:before="${o.before||0}" w:after="${o.after==null?0:o.after}" w:line="240" w:lineRule="auto"/>`
+  const pPr = `<w:pPr>${o.keepNext?'<w:keepNext/>':''}${o.border?`<w:pBdr><w:top w:val="single" w:sz="4" w:space="2" w:color="BBBBBB"/><w:left w:val="single" w:sz="4" w:space="4" w:color="BBBBBB"/><w:bottom w:val="single" w:sz="4" w:space="2" w:color="BBBBBB"/><w:right w:val="single" w:sz="4" w:space="4" w:color="BBBBBB"/></w:pBdr>`:''}`
+    + `<w:spacing w:before="${o.before||0}" w:after="${o.after==null?0:o.after}" w:line="240" w:lineRule="auto"/>`
     + `${o.align?`<w:jc w:val="${o.align}"/>`:''}</w:pPr>`;
   return `<w:p>${pPr}${runs||''}</w:p>`;
 }
@@ -1103,7 +1103,10 @@ function dxCell(c) {
 function dxTable(widths, rows, o = {}) {
   const total = widths.reduce((a,b)=>a+b,0);
   const mar = o.cellMar == null ? 100 : o.cellMar;
-  const tblPr = `<w:tblPr><w:tblW w:w="${total}" w:type="dxa"/><w:tblLayout w:type="fixed"/>`
+  // Ordine degli elementi come richiesto dallo schema OOXML (Word è rigoroso)
+  const tblPr = `<w:tblPr><w:tblW w:w="${total}" w:type="dxa"/>`
+    + (o.cellSpacing ? `<w:tblCellSpacing w:w="${o.cellSpacing}" w:type="dxa"/>` : '')
+    + `<w:tblLayout w:type="fixed"/>`
     + `<w:tblCellMar><w:top w:w="60" w:type="dxa"/><w:left w:w="${mar}" w:type="dxa"/><w:bottom w:w="60" w:type="dxa"/><w:right w:w="${mar}" w:type="dxa"/></w:tblCellMar>`
     + `<w:tblLook w:val="0000"/></w:tblPr>`;
   const grid = `<w:tblGrid>${widths.map(w=>`<w:gridCol w:w="${w}"/>`).join('')}</w:tblGrid>`;
@@ -1173,14 +1176,11 @@ const BORDER_ROW = null;
 function dxPhotos(sec, ctx) {
   const photos = (sec.photos || []).filter(p => p && p.img);
   if (!photos.length) return '';
-  const w = DX.PHOTO_COL_W, g = DX.PHOTO_GAP_W;
-  const CAP_BORDER = {sz:4, color:'BBBBBB'};
-  const gap = () => ({ paras: dxPara('') });
+  const w = DX.PHOTO_COL_W;
   const rows = [];
   for (let i = 0; i < photos.length; i += 2) {
     const photoRow = [], capRow = [];
     for (let j = 0; j < 2; j++) {
-      if (j) { photoRow.push(gap()); capRow.push(gap()); }
       const p = photos[i + j];
       let pic = '';
       if (p) {
@@ -1188,14 +1188,15 @@ function dxPhotos(sec, ctx) {
         ctx.images.push({ rId, name: `media/foto${ctx.imgN}.jpg`, bytes: p.img.bytes });
         pic = dxImage(rId, ctx.imgN, p.img.w, p.img.h);
       }
-      // Casella foto (senza bordo) e, nella riga sotto, box didascalia separato con bordo.
+      // Due sole colonne. Riga foto senza bordi; riga sotto con il box didascalia
+      // (cella con bordo, staccata dalla foto e dal box accanto grazie alla spaziatura tra celle).
       // Anche la casella vuota (foto dispari) ha il suo box didascalia.
       photoRow.push({ paras: dxPara(pic, {align:'center', before: i ? 200 : 0, keepNext:true}), valign:'bottom' });
-      capRow.push({ paras: dxPara(dxRun(p ? (p.caption || '') : '', {sz:16})), borders: CAP_BORDER });
+      capRow.push({ paras: dxPara(dxRun(p ? (p.caption || '') : '', {sz:16})), borders: {sz:4, color:'BBBBBB'} });
     }
     rows.push(photoRow, capRow);
   }
-  return dxTable([w, g, w], rows, { cellMar: DX.PHOTO_CELL_MAR });
+  return dxTable([w, w], rows, { cellMar: DX.PHOTO_CELL_MAR, cellSpacing: DX.PHOTO_CELL_SPACING });
 }
 
 function dxStandard(sec, def, ctx) {
@@ -1371,7 +1372,7 @@ async function exportWord() {
     a.href = url; a.download = `${fname}_report.docx`;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 10000);
-    showToast('File .docx scaricato (v8)');
+    showToast('File .docx scaricato (v9)');
   } catch(e) {
     console.error(e);
     showToast('Errore: ' + e.message);
