@@ -1060,8 +1060,7 @@ const DX = {
   PHOTO_CELL_MAR: 113,                    // 0,2 cm a sinistra e a destra
 };
 DX.PHOTO_COL_W = Math.floor(DX.CONTENT_W / 2);                  // 4819 twip = 8,5 cm
-DX.PHOTO_CELL_SPACING = 57;                                     // distanza tra i box (0,1 cm per lato)
-DX.PHOTO_IMG_EMU = (DX.PHOTO_COL_W - 2 * DX.PHOTO_CELL_MAR - 2 * DX.PHOTO_CELL_SPACING) * 635; // larghezza utile cella in EMU
+DX.PHOTO_IMG_EMU = (DX.PHOTO_COL_W - 2 * DX.PHOTO_CELL_MAR) * 635; // larghezza utile cella in EMU
 
 function xe(s) {
   return String(s == null ? '' : s)
@@ -1188,15 +1187,15 @@ function dxPhotos(sec, ctx) {
         ctx.images.push({ rId, name: `media/foto${ctx.imgN}.jpg`, bytes: p.img.bytes });
         pic = dxImage(rId, ctx.imgN, p.img.w, p.img.h);
       }
-      // Due sole colonne. Riga foto senza bordi; riga sotto con il box didascalia
-      // (cella con bordo, staccata dalla foto e dal box accanto grazie alla spaziatura tra celle).
+      // Due sole colonne. Riga foto e, sotto, riga con la casella didascalia separata.
+      // Nessun bordo visibile in stampa (solo i titoli di sezione hanno il bordo).
       // Anche la casella vuota (foto dispari) ha il suo box didascalia.
       photoRow.push({ paras: dxPara(pic, {align:'center', before: i ? 200 : 0, keepNext:true}), valign:'bottom' });
-      capRow.push({ paras: dxPara(dxRun(p ? (p.caption || '') : '', {sz:16})), borders: {sz:4, color:'BBBBBB'} });
+      capRow.push({ paras: dxPara(dxRun(p ? (p.caption || '') : '', {sz:16})) });
     }
     rows.push(photoRow, capRow);
   }
-  return dxTable([w, w], rows, { cellMar: DX.PHOTO_CELL_MAR, cellSpacing: DX.PHOTO_CELL_SPACING });
+  return dxTable([w, w], rows, { cellMar: DX.PHOTO_CELL_MAR });
 }
 
 function dxStandard(sec, def, ctx) {
@@ -1372,7 +1371,7 @@ async function exportWord() {
     a.href = url; a.download = `${fname}_report.docx`;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 10000);
-    showToast('File .docx scaricato (v9)');
+    showToast('File .docx scaricato (v10)');
   } catch(e) {
     console.error(e);
     showToast('Errore: ' + e.message);
