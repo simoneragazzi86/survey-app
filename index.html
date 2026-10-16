@@ -1165,8 +1165,9 @@ function dxSecHeader(def, span) {
   return [{ span, paras, fill:'DCE8F5', borders:{val:'double', sz:18, color:DX.COLOR} }];
 }
 const dxTxt = (t, o) => dxPara(dxRun(t, o));
-const BORDER_HDR = {sz:4, color:'BBBBBB'};
-const BORDER_ROW = {sz:4, color:'DDDDDD'};
+// Bordi di cella non visibili in stampa: solo le intestazioni di sezione hanno il bordo.
+const BORDER_HDR = null;
+const BORDER_ROW = null;
 
 function dxPhotos(sec, ctx) {
   const photos = (sec.photos || []).filter(p => p && p.img);
@@ -1366,7 +1367,7 @@ async function exportWord() {
     a.href = url; a.download = `${fname}_report.docx`;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 10000);
-    showToast('File .docx scaricato (v5)');
+    showToast('File .docx scaricato (v6)');
   } catch(e) {
     console.error(e);
     showToast('Errore: ' + e.message);
