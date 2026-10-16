@@ -1182,11 +1182,11 @@ function dxPhotos(sec, ctx) {
         const rId = `rIdImg${++ctx.imgN}`;
         ctx.images.push({ rId, name: `media/foto${ctx.imgN}.jpg`, bytes: p.img.bytes });
         row.push({ paras: dxPara(dxImage(rId, ctx.imgN, p.img.w, p.img.h), {align:'center'})
-                        + dxPara(dxRun(p.caption || '', {sz:16}), {border:true, before:80, after:40}) });
+                        + dxPara(dxRun(p.caption || '', {sz:16}), {before:80, after:40}) });
       } else {
         // Casella vuota con la stessa struttura delle altre: spazio per la foto + riquadro didascalia
         row.push({ paras: dxPara('', {align:'center'})
-                        + dxPara(dxRun('', {sz:16}), {border:true, before:80, after:40}) });
+                        + dxPara(dxRun('', {sz:16}), {before:80, after:40}) });
       }
     }
     rows.push(row);
@@ -1367,7 +1367,7 @@ async function exportWord() {
     a.href = url; a.download = `${fname}_report.docx`;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 10000);
-    showToast('File .docx scaricato (v6)');
+    showToast('File .docx scaricato (v7)');
   } catch(e) {
     console.error(e);
     showToast('Errore: ' + e.message);
