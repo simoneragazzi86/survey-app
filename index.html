@@ -1047,211 +1047,328 @@ function showToast(msg) {
   setTimeout(() => t.classList.remove('show'), 2500);
 }
 
-// ─── WORD HTML EXPORT ────────────────────────────────────────────────────────
-// Resize a photo to exact pixel dimensions for Word embedding.
-// Word ignores CSS/attribute width on base64 images and shows them at native size,
-// so the only reliable fix is to reduce the actual pixel dimensions.
-// Target: ~300px wide = 8cm at 96dpi, good for 2-per-row on A4.
-function resizeForWord(dataUrl, targetW = 300) {
-  return new Promise(res => {
+// ─── WORD (.docx) EXPORT ─────────────────────────────────────────────────────
+// Genera un vero file .docx (Office Open XML), senza librerie esterne.
+// Tutte le tabelle hanno layout FISSO: in Word una foto inserita in una cella
+// viene ridotta automaticamente alla larghezza della cella, uguale alle foto
+// esportate dall'app.
+const DX = {
+  COLOR: '1A3A5C',
+  PAGE_W: 11906, PAGE_H: 16838,          // A4 in twip
+  MARG_L: 1134, MARG_R: 1134, MARG_T: 1134, MARG_B: 1417,
+  get CONTENT_W() { return this.PAGE_W - this.MARG_L - this.MARG_R; }, // 9638 twip = 17 cm
+  PHOTO_CELL_MAR: 113,                    // 0,2 cm a sinistra e a destra
+};
+DX.PHOTO_COL_W = Math.floor(DX.CONTENT_W / 2);                  // 4819 twip = 8,5 cm
+DX.PHOTO_IMG_EMU = (DX.PHOTO_COL_W - 2 * DX.PHOTO_CELL_MAR) * 635; // larghezza utile cella in EMU
+
+function xe(s) {
+  return String(s == null ? '' : s)
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Run di testo; i ritorni a capo diventano <w:br/>
+function dxRun(text, o = {}) {
+  const rPr = `<w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:cs="Arial"/>${o.b?'<w:b/>':''}`
+    + `<w:color w:val="${o.color||DX.COLOR}"/><w:sz w:val="${o.sz||18}"/><w:szCs w:val="${o.sz||18}"/></w:rPr>`;
+  const parts = String(text == null ? '' : text).split(/\r?\n/);
+  return parts.map((t,i) => `<w:r>${rPr}${i?'<w:br/>':''}<w:t xml:space="preserve">${xe(t)}</w:t></w:r>`).join('');
+}
+
+function dxPara(runs, o = {}) {
+  const pPr = `<w:pPr>${o.border?`<w:pBdr><w:top w:val="single" w:sz="4" w:space="2" w:color="BBBBBB"/><w:left w:val="single" w:sz="4" w:space="4" w:color="BBBBBB"/><w:bottom w:val="single" w:sz="4" w:space="2" w:color="BBBBBB"/><w:right w:val="single" w:sz="4" w:space="4" w:color="BBBBBB"/></w:pBdr>`:''}`
+    + `<w:spacing w:before="${o.before||0}" w:after="${o.after==null?0:o.after}" w:line="240" w:lineRule="auto"/>`
+    + `${o.align?`<w:jc w:val="${o.align}"/>`:''}</w:pPr>`;
+  return `<w:p>${pPr}${runs||''}</w:p>`;
+}
+
+function dxBorders(b) {
+  if (!b) return '';
+  const side = s => `<w:${s} w:val="${b.val||'single'}" w:sz="${b.sz||4}" w:space="0" w:color="${b.color||'BBBBBB'}"/>`;
+  return `<w:tcBorders>${['top','left','bottom','right'].map(side).join('')}</w:tcBorders>`;
+}
+
+// cell: {w, span, paras (xml), fill, borders, align}
+function dxCell(c) {
+  const tcPr = `<w:tcPr><w:tcW w:w="${c.w}" w:type="dxa"/>${c.span>1?`<w:gridSpan w:val="${c.span}"/>`:''}`
+    + dxBorders(c.borders)
+    + (c.fill?`<w:shd w:val="clear" w:color="auto" w:fill="${c.fill}"/>`:'')
+    + `<w:vAlign w:val="${c.valign||'top'}"/></w:tcPr>`;
+  return `<w:tc>${tcPr}${c.paras || dxPara('')}</w:tc>`;
+}
+
+// table: widths[] (twip), rows[[cell,...]], cellMar
+function dxTable(widths, rows, o = {}) {
+  const total = widths.reduce((a,b)=>a+b,0);
+  const mar = o.cellMar == null ? 100 : o.cellMar;
+  const tblPr = `<w:tblPr><w:tblW w:w="${total}" w:type="dxa"/><w:tblLayout w:type="fixed"/>`
+    + `<w:tblCellMar><w:top w:w="60" w:type="dxa"/><w:left w:w="${mar}" w:type="dxa"/><w:bottom w:w="60" w:type="dxa"/><w:right w:w="${mar}" w:type="dxa"/></w:tblCellMar>`
+    + `<w:tblLook w:val="0000"/></w:tblPr>`;
+  const grid = `<w:tblGrid>${widths.map(w=>`<w:gridCol w:w="${w}"/>`).join('')}</w:tblGrid>`;
+  let gi;
+  const trs = rows.map(r => {
+    gi = 0;
+    return `<w:tr><w:trPr><w:cantSplit/></w:trPr>${r.map(c => {
+      const span = c.span || 1;
+      const w = widths.slice(gi, gi + span).reduce((a,b)=>a+b,0);
+      gi += span;
+      return dxCell({...c, w, span});
+    }).join('')}</w:tr>`;
+  }).join('');
+  return `<w:tbl>${tblPr}${grid}${trs}</w:tbl>` + dxPara('', {after: 160});
+}
+
+// ── Immagini ──
+// Ridimensiona per il file (qualità buona, peso contenuto) e restituisce byte + dimensioni.
+function prepareDocxImage(dataUrl, maxW = 1200) {
+  return new Promise((res, rej) => {
     const img = new Image();
     img.onload = () => {
-      const ratio = Math.min(targetW / img.width, 1);
+      const ratio = Math.min(maxW / img.width, 1);
       const c = document.createElement('canvas');
-      c.width  = Math.round(img.width  * ratio);
+      c.width = Math.round(img.width * ratio);
       c.height = Math.round(img.height * ratio);
-      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-      res(c.toDataURL('image/jpeg', 0.88));
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+      ctx.drawImage(img, 0, 0, c.width, c.height);
+      const b64 = c.toDataURL('image/jpeg', 0.85).split(',')[1];
+      const bin = atob(b64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      res({ bytes, w: c.width, h: c.height });
     };
+    img.onerror = () => rej(new Error('Foto non leggibile'));
     img.src = dataUrl;
   });
 }
 
+function dxImage(rId, id, wPx, hPx) {
+  const cx = DX.PHOTO_IMG_EMU;
+  const cy = Math.round(cx * hPx / wPx);
+  return `<w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0">`
+    + `<wp:extent cx="${cx}" cy="${cy}"/><wp:docPr id="${id}" name="Foto ${id}"/>`
+    + `<wp:cNvGraphicFramePr><a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/></wp:cNvGraphicFramePr>`
+    + `<a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">`
+    + `<pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">`
+    + `<pic:nvPicPr><pic:cNvPr id="${id}" name="foto${id}.jpg"/><pic:cNvPicPr/></pic:nvPicPr>`
+    + `<pic:blipFill><a:blip r:embed="${rId}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>`
+    + `<pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom>`
+    + `<a:ln w="9525"><a:solidFill><a:srgbClr val="CCCCCC"/></a:solidFill></a:ln></pic:spPr>`
+    + `</pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`;
+}
+
+// ── Sezioni ──
+function dxSecHeader(def, span) {
+  const paras = dxPara(dxRun(def.title, {b:true, sz:20}), {align:'center'})
+              + dxPara(dxRun(def.titleEn || '', {sz:16}), {align:'center'});
+  return [{ span, paras, fill:'DCE8F5', borders:{val:'double', sz:18, color:DX.COLOR} }];
+}
+const dxTxt = (t, o) => dxPara(dxRun(t, o));
+const BORDER_HDR = {sz:4, color:'BBBBBB'};
+const BORDER_ROW = {sz:4, color:'DDDDDD'};
+
+function dxPhotos(sec, ctx) {
+  const photos = (sec.photos || []).filter(p => p && p.img);
+  if (!photos.length) return '';
+  const w = DX.PHOTO_COL_W;
+  const rows = [];
+  for (let i = 0; i < photos.length; i += 2) {
+    const row = [];
+    for (let j = 0; j < 2; j++) {
+      const p = photos[i + j];
+      if (p) {
+        const rId = `rIdImg${++ctx.imgN}`;
+        ctx.images.push({ rId, name: `media/foto${ctx.imgN}.jpg`, bytes: p.img.bytes });
+        row.push({ paras: dxPara(dxImage(rId, ctx.imgN, p.img.w, p.img.h), {align:'center'})
+                        + dxPara(dxRun(p.caption || '', {sz:16}), {border:true, before:80, after:40}) });
+      } else {
+        row.push({ paras: dxPara('', {align:'center'}) });
+      }
+    }
+    rows.push(row);
+  }
+  return dxTable([w, w], rows, { cellMar: DX.PHOTO_CELL_MAR });
+}
+
+function dxStandard(sec, def, ctx) {
+  const W = DX.CONTENT_W, L = Math.round(W * 0.45);
+  const rows = [dxSecHeader(def, 2)];
+  (sec.rows || []).forEach(r => rows.push([{paras: dxTxt(r.label)}, {paras: dxTxt(r.value)}]));
+  if ((sec.tests || []).length) {
+    rows.push([{span:2, paras: dxPara(dxRun('TESTS', {b:true, sz:16}), {align:'center'}), borders:BORDER_HDR}]);
+    rows.push([{paras: dxPara(dxRun('Type of test', {b:true, sz:16}), {align:'center'}), borders:BORDER_HDR},
+               {paras: dxPara(dxRun('Outcome', {b:true, sz:16}), {align:'center'}), borders:BORDER_HDR}]);
+    sec.tests.forEach(t => rows.push([{paras: dxTxt(t.name), borders:BORDER_ROW}, {paras: dxTxt(t.outcome), borders:BORDER_ROW}]));
+  }
+  if (sec.notes) rows.push([{paras: dxTxt('Note')}, {paras: dxTxt(sec.notes)}]);
+  rows.push([{paras: dxTxt('Giudizio / Outcome', {b:true})}, {paras: dxTxt(sec.outcome, {b:true})}]);
+  return dxTable([L, W - L], rows) + dxPhotos(sec, ctx);
+}
+
+function dxDocuments(sec, def) {
+  const q = Math.floor(DX.CONTENT_W / 4), widths = [DX.CONTENT_W - 3*q, q, q, q];
+  const hdr = t => ({paras: dxPara(dxRun(t, {b:true, sz:16}), {align:'center'}), borders:BORDER_HDR});
+  const rows = [dxSecHeader(def, 4),
+    [hdr('Documento'), hdr('Rilasciato da / Issued by'), hdr('Data rilascio'), hdr('Scadenza / Expiry')]];
+  (sec.docs || []).forEach(d => rows.push([d.doc, d.issuedBy, d.issueDate, d.expiry].map(v => ({paras: dxTxt(v), borders:BORDER_ROW}))));
+  if (sec.notes) rows.push([{span:4, paras: dxTxt('Note: ' + sec.notes)}]);
+  return dxTable(widths, rows);
+}
+
+function dxSeaTrial(sec, def, ctx) {
+  const W = DX.CONTENT_W, L = Math.round(W * 0.45), h = Math.floor((W - L) / 2);
+  const widths = [L, h, W - L - h];
+  const sr = sec.seaRuns || { runs: [] };
+  const hdr = (t, span) => ({span, paras: dxPara(dxRun(t, {b:true, sz:16}), {align:'center'}), borders:BORDER_HDR});
+  const cell = (t, span) => ({span, paras: dxTxt(t), borders:BORDER_ROW});
+  const rows = [dxSecHeader(def, 3)];
+  (sr.runs || []).forEach((run, ri) => {
+    rows.push([hdr(`Run ${ri+1} — ${run.rpm || ''} rpm`, 3)]);
+    rows.push([hdr('Parametro'), hdr('PORT'), hdr('STBD')]);
+    (run.params || []).forEach(p => rows.push([cell(p.name), cell(p.portVal), cell(p.stbdVal)]));
+  });
+  if (sr.topSpeed) rows.push([cell('Top Speed'), cell(sr.topSpeed, 2)]);
+  if (sr.manoeuvrNotes) rows.push([cell('Manoeuvrability'), cell(sr.manoeuvrNotes, 2)]);
+  if (sec.notes) rows.push([cell('Note'), cell(sec.notes, 2)]);
+  return dxTable(widths, rows) + dxPhotos(sec, ctx);
+}
+
+function dxRecommendations(sec, def, ctx) {
+  return dxTable([DX.CONTENT_W], [dxSecHeader(def, 1), [{paras: dxTxt(sec.recommendText || '')}]]) + dxPhotos(sec, ctx);
+}
+
+function dxConclusions(sec, def) {
+  const rows = [dxSecHeader(def, 1)];
+  if (sec.conclusionText) rows.push([{paras: dxTxt(sec.conclusionText)}]);
+  if (sec.notes) { rows.push([{paras: dxTxt('Allegati / Annexes')}]); rows.push([{paras: dxTxt(sec.notes)}]); }
+  return dxTable([DX.CONTENT_W], rows);
+}
+
+function dxSection(sec, ctx) {
+  const def = getDef(sec.id);
+  if (!def || def.id === 'cover') return '';
+  if (def.type === 'documents') return dxDocuments(sec, def);
+  if (def.type === 'sea_trial') return dxSeaTrial(sec, def, ctx);
+  if (def.type === 'recommendations') return dxRecommendations(sec, def, ctx);
+  if (def.type === 'conclusions') return dxConclusions(sec, def);
+  return dxStandard(sec, def, ctx);
+}
+
+function buildDocxXml(stateData, ctx) {
+  const v = stateData.vessel || {};
+  const q = Math.floor(DX.CONTENT_W / 4);
+  const lbl = t => ({paras: dxTxt(t, {b:true}), borders:BORDER_HDR});
+  const val = t => ({paras: dxTxt(t), borders:BORDER_HDR});
+  const cover = dxPara(dxRun('Survey Report', {b:true, sz:26}), {after:80})
+    + dxTable([q, q, q, DX.CONTENT_W - 3*q], [
+        [lbl('Nome Yacht / Vessel Name'), val(v.name), lbl('Building N°'), val(v.buildingNr)],
+        [lbl('Luogo / Location'), val(v.location), lbl('Data / Date'), val(v.date)],
+        [lbl("Rappresentante armatore / Owner's rep"), val(v.ownerRep), lbl("Rappresentante cantiere / Yard's rep"), val(v.yardRep)],
+      ]);
+  const body = stateData.sections
+    .filter(sec => sec.enabled && getDef(sec.id))
+    .map(sec => dxSection(sec, ctx)).join('');
+  const footer = dxPara(dxRun('La Spezia — Piero Ragazzi S.r.l.', {sz:18, color:'666666'}), {before:400});
+  const sectPr = `<w:sectPr><w:pgSz w:w="${DX.PAGE_W}" w:h="${DX.PAGE_H}"/>`
+    + `<w:pgMar w:top="${DX.MARG_T}" w:right="${DX.MARG_R}" w:bottom="${DX.MARG_B}" w:left="${DX.MARG_L}" w:header="708" w:footer="708" w:gutter="0"/></w:sectPr>`;
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`
+    + `<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">`
+    + `<w:body>${cover}${body}${footer}${sectPr}</w:body></w:document>`;
+}
+
+function buildDocxFiles(stateData, ctx) {
+  const enc = s => new TextEncoder().encode(s);
+  const docXml = buildDocxXml(stateData, ctx);
+  const styles = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`
+    + `<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:docDefaults>`
+    + `<w:rPrDefault><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:eastAsia="Arial" w:cs="Arial"/><w:color w:val="${DX.COLOR}"/><w:sz w:val="20"/><w:szCs w:val="20"/><w:lang w:val="it-IT"/></w:rPr></w:rPrDefault>`
+    + `<w:pPrDefault><w:pPr><w:spacing w:after="0" w:line="240" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults>`
+    + `<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/></w:style>`
+    + `<w:style w:type="table" w:default="1" w:styleId="TableNormal"><w:name w:val="Normal Table"/><w:tblPr><w:tblInd w:w="0" w:type="dxa"/><w:tblCellMar><w:top w:w="0" w:type="dxa"/><w:left w:w="108" w:type="dxa"/><w:bottom w:w="0" w:type="dxa"/><w:right w:w="108" w:type="dxa"/></w:tblCellMar></w:tblPr></w:style>`
+    + `</w:styles>`;
+  const ct = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`
+    + `<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">`
+    + `<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>`
+    + `<Default Extension="xml" ContentType="application/xml"/>`
+    + `<Default Extension="jpg" ContentType="image/jpeg"/>`
+    + `<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>`
+    + `<Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>`
+    + `</Types>`;
+  const rels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`
+    + `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">`
+    + `<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`;
+  const docRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`
+    + `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">`
+    + `<Relationship Id="rIdStyles" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>`
+    + ctx.images.map(im => `<Relationship Id="${im.rId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="${im.name}"/>`).join('')
+    + `</Relationships>`;
+  return [
+    { name: '[Content_Types].xml', data: enc(ct) },
+    { name: '_rels/.rels', data: enc(rels) },
+    { name: 'word/document.xml', data: enc(docXml) },
+    { name: 'word/styles.xml', data: enc(styles) },
+    { name: 'word/_rels/document.xml.rels', data: enc(docRels) },
+    ...ctx.images.map(im => ({ name: 'word/' + im.name, data: im.bytes })),
+  ];
+}
+
+// ── ZIP minimale (metodo "store", senza compressione) ──
+const CRC_TABLE = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(buf) { let c = 0xFFFFFFFF; for (let i = 0; i < buf.length; i++) c = CRC_TABLE[(c ^ buf[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+function makeZip(files) {
+  const enc = new TextEncoder(), chunks = [], central = [];
+  let offset = 0;
+  const DOS_TIME = 0, DOS_DATE = (2026 - 1980) << 9 | 1 << 5 | 1;
+  for (const f of files) {
+    const name = enc.encode(f.name), data = f.data, crc = crc32(data);
+    const lh = new DataView(new ArrayBuffer(30));
+    lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(6, 0x0800, true);
+    lh.setUint16(8, 0, true); lh.setUint16(10, DOS_TIME, true); lh.setUint16(12, DOS_DATE, true);
+    lh.setUint32(14, crc, true); lh.setUint32(18, data.length, true); lh.setUint32(22, data.length, true);
+    lh.setUint16(26, name.length, true); lh.setUint16(28, 0, true);
+    chunks.push(new Uint8Array(lh.buffer), name, data);
+    const ch = new DataView(new ArrayBuffer(46));
+    ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true); ch.setUint16(8, 0x0800, true);
+    ch.setUint16(10, 0, true); ch.setUint16(12, DOS_TIME, true); ch.setUint16(14, DOS_DATE, true);
+    ch.setUint32(16, crc, true); ch.setUint32(20, data.length, true); ch.setUint32(24, data.length, true);
+    ch.setUint16(28, name.length, true); ch.setUint32(42, offset, true);
+    central.push(new Uint8Array(ch.buffer), name);
+    offset += 30 + name.length + data.length;
+  }
+  const cdSize = central.reduce((a, c) => a + c.length, 0);
+  const end = new DataView(new ArrayBuffer(22));
+  end.setUint32(0, 0x06054b50, true); end.setUint16(8, files.length, true); end.setUint16(10, files.length, true);
+  end.setUint32(12, cdSize, true); end.setUint32(16, offset, true);
+  return new Blob([...chunks, ...central, new Uint8Array(end.buffer)],
+    { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+}
+
 async function exportWord() {
-  showToast('Ridimensionamento foto…');
+  showToast('Preparazione foto…');
   try {
-    // Deep-clone state and replace all photo dataUrls with Word-sized versions
     const wordState = JSON.parse(JSON.stringify(state));
     for (const sec of wordState.sections) {
-      if (sec.photos && sec.photos.length) {
-        for (const p of sec.photos) {
-          p.dataUrl = await resizeForWord(p.dataUrl, 300);
-        }
+      if (!sec.enabled || !sec.photos || !sec.photos.length) continue;
+      for (const p of sec.photos) {
+        try { p.img = await prepareDocxImage(p.dataUrl); } catch (e) { p.img = null; }
+        delete p.dataUrl;
       }
     }
     showToast('Generazione documento…');
-    const html = buildWordHTML(wordState);
-    const blob = new Blob([html], { type: 'application/msword;charset=utf-8' });
+    const ctx = { images: [], imgN: 0 };
+    const blob = makeZip(buildDocxFiles(wordState, ctx));
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     const fname = (state.vessel.name || 'Survey').replace(/[^a-zA-Z0-9_\- ]/g,'_');
-    a.href = url; a.download = `${fname}_report.doc`;
-    a.click();
-    URL.revokeObjectURL(url);
-    showToast('File scaricato (v3)! Aprire in Word e salvare come .docx');
+    a.href = url; a.download = `${fname}_report.docx`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    showToast('File .docx scaricato (v4)');
   } catch(e) {
     console.error(e);
     showToast('Errore: ' + e.message);
   }
-}
-
-function buildWordHTML(stateData) {
-  if (!stateData) stateData = state;
-  const v = stateData.vessel;
-  const sectionsHTML = stateData.sections
-    .filter(sec => {
-      const def = getDef(sec.id);
-      return sec.enabled && def;
-    })
-    .map(sec => buildWordSection(sec))
-    .join('\n');
-
-  return `<html xmlns:o='urn:schemas-microsoft-com:office:office'
-    xmlns:w='urn:schemas-microsoft-com:office:word'
-    xmlns='http://www.w3.org/TR/REC-html40'>
-<head>
-<meta charset='utf-8'>
-<title>Survey Report — ${escRaw(v.name)}</title>
-<!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View></w:WordDocument></xml><![endif]-->
-<style>
-  @page { size:A4; margin:2cm 2cm 2.5cm 2cm }
-  body { font-family:Arial,sans-serif; font-size:10pt; color:#1a3a5c }
-  h1 { font-size:13pt; color:#1a3a5c; margin:0 0 4pt }
-  table { border-collapse:collapse; width:100%; margin-bottom:10pt }
-  td,th { border:none; padding:4pt 6pt; vertical-align:top; font-size:9pt; color:#1a3a5c }
-  .sec-hdr td { background:#dce8f5; color:#1a3a5c; font-weight:bold; font-size:10pt; border:3pt double #1a3a5c; padding:8pt; text-align:center }
-  .lbl { width:45%; font-size:9pt }
-  .tests-hdr td { font-weight:bold; font-size:8pt; border:1pt solid #bbb; text-align:center }
-  .tests-row td { border:1pt solid #ddd }
-  .outcome-row td { font-weight:bold }
-  .photo-cell { text-align:center; padding:4pt 0.2cm; width:8.3cm; vertical-align:top }
-  .photo-cell img { width:7.9cm; border:1pt solid #ccc; display:block; margin:0 auto }
-  .photo-caption { border:1pt solid #bbb; padding:3pt 5pt; font-size:8pt; margin-top:4pt; min-height:18pt; width:100%; text-align:left }
-  .run-hdr td { font-weight:bold; font-size:9pt; border:1pt solid #bbb; text-align:center }
-  .run-col-hdr td { font-weight:bold; font-size:8pt; text-align:center; border:1pt solid #bbb }
-  .run-data td { border:1pt solid #ddd }
-  .cover-tbl td { border:1pt solid #bbb; padding:5pt 8pt }
-  .cover-lbl { font-weight:bold; font-size:9pt; width:35% }
-  p { margin:4pt 0 }
-</style>
-</head>
-<body>
-<!-- COVER -->
-<h1>Survey Report</h1>
-<table class="cover-tbl">
-  <tr><td class="cover-lbl">Nome Yacht / Vessel Name</td><td>${escRaw(v.name)}</td><td class="cover-lbl">Building N°</td><td>${escRaw(v.buildingNr)}</td></tr>
-  <tr><td class="cover-lbl">Luogo / Location</td><td>${escRaw(v.location)}</td><td class="cover-lbl">Data / Date</td><td>${escRaw(v.date)}</td></tr>
-  <tr><td class="cover-lbl">Rappresentante armatore / Owner's rep</td><td>${escRaw(v.ownerRep)}</td><td class="cover-lbl">Rappresentante cantiere / Yard's rep</td><td>${escRaw(v.yardRep)}</td></tr>
-</table>
-
-${sectionsHTML}
-
-<p style="margin-top:20pt;font-size:9pt;color:#666">La Spezia — Piero Ragazzi S.r.l.</p>
-</body></html>`;
-}
-
-function buildWordSection(sec) {
-  const def = getDef(sec.id);
-  if (!def) return '';
-  if (def.id === 'cover') return '';
-
-  const hdr = `<tr class="sec-hdr"><td colspan="2"><strong>${escRaw(def.title)}</strong><br><span style="font-size:8pt;font-weight:normal">${escRaw(def.titleEn)}</span></td></tr>`;
-
-  if (def.type === 'documents') return buildWordDocuments(sec, def, hdr);
-  if (def.type === 'sea_trial') return buildWordSeaTrial(sec, def);
-  if (def.type === 'recommendations') return buildWordRecommendations(sec, def);
-  if (def.type === 'conclusions') return buildWordConclusions(sec, def);
-
-  // Standard section
-  const rows = sec.rows.map(r =>
-    `<tr><td class="lbl">${escRaw(r.label)}</td><td>${escRaw(r.value)}</td></tr>`
-  ).join('');
-
-  const testsHTML = sec.tests.length ? `
-    <tr class="tests-hdr"><td colspan="2">TESTS</td></tr>
-    <tr class="tests-hdr"><td>Type of test</td><td>Outcome</td></tr>
-    ${sec.tests.map(t=>`<tr class="tests-row"><td>${escRaw(t.name)}</td><td>${escRaw(t.outcome)}</td></tr>`).join('')}
-  ` : '';
-
-  const photosHTML = buildWordPhotos(sec);
-  const notesRow = sec.notes ? `<tr><td class="lbl">Note</td><td>${escRaw(sec.notes).replace(/\n/g,'<br>')}</td></tr>` : '';
-  const outcomeRow = `<tr class="outcome-row"><td class="lbl"><strong>Giudizio / Outcome</strong></td><td><strong>${escRaw(sec.outcome)}</strong></td></tr>`;
-
-  return `<table>${hdr}${rows}${testsHTML}${notesRow}${outcomeRow}</table>${photosHTML}`;
-}
-
-function buildWordDocuments(sec, def, hdr) {
-  const rows = (sec.docs||[]).map(d =>
-    `<tr><td>${escRaw(d.doc)}</td><td>${escRaw(d.issuedBy)}</td><td>${escRaw(d.issueDate)}</td><td>${escRaw(d.expiry)}</td></tr>`
-  ).join('');
-  const notesRow = sec.notes ? `<tr><td class="lbl" colspan="4">Note: ${escRaw(sec.notes)}</td></tr>` : '';
-  return `<table>
-    <tr class="sec-hdr"><td colspan="4"><strong>${escRaw(def.title)}</strong><br><span style="font-size:8pt;font-weight:normal">${escRaw(def.titleEn)}</span></td></tr>
-    <tr class="tests-hdr"><td>Documento</td><td>Rilasciato da / Issued by</td><td>Data rilascio</td><td>Scadenza / Expiry</td></tr>
-    ${rows}${notesRow}
-  </table>`;
-}
-
-function buildWordSeaTrial(sec, def) {
-  const sr = sec.seaRuns;
-  const runsHTML = sr.runs.map((run, ri) => {
-    const colHdr = `<tr class="run-col-hdr"><td>Parametro</td><td>PORT</td><td>STBD</td></tr>`;
-    const params = run.params.map(p =>
-      `<tr class="run-data"><td class="lbl">${escRaw(p.name)}</td><td>${escRaw(p.portVal)}</td><td>${escRaw(p.stbdVal)}</td></tr>`
-    ).join('');
-    return `<tr class="run-hdr"><td colspan="3">Run ${ri+1} — ${escRaw(run.rpm)} rpm</td></tr>${colHdr}${params}`;
-  }).join('');
-
-  const photosHTML = buildWordPhotos(sec);
-
-  return `<table>
-    <tr class="sec-hdr"><td colspan="3"><strong>${escRaw(def.title)}</strong><br><span style="font-size:8pt;font-weight:normal">${escRaw(def.titleEn)}</span></td></tr>
-    ${runsHTML}
-    ${sr.topSpeed?`<tr class="run-data"><td class="lbl">Top Speed</td><td colspan="2">${escRaw(sr.topSpeed)}</td></tr>`:''}
-    ${sr.manoeuvrNotes?`<tr class="run-data"><td class="lbl">Manoeuvrability</td><td colspan="2">${escRaw(sr.manoeuvrNotes)}</td></tr>`:''}
-    ${sec.notes?`<tr class="run-data"><td class="lbl">Note</td><td colspan="2">${escRaw(sec.notes)}</td></tr>`:''}
-  </table>${photosHTML}`;
-}
-
-function buildWordRecommendations(sec, def) {
-  return `<table>
-    <tr class="sec-hdr"><td><strong>${escRaw(def.title)}</strong><br><span style="font-size:8pt;font-weight:normal">${escRaw(def.titleEn)}</span></td></tr>
-    <tr><td style="white-space:pre-wrap">${escRaw(sec.recommendText||'').replace(/\n/g,'<br>')}</td></tr>
-  </table>${buildWordPhotos(sec)}`;
-}
-
-function buildWordConclusions(sec, def) {
-  return `<table>
-    <tr class="sec-hdr"><td><strong>${escRaw(def.title)}</strong><br><span style="font-size:8pt;font-weight:normal">${escRaw(def.titleEn)}</span></td></tr>
-    ${sec.conclusionText?`<tr><td style="white-space:pre-wrap">${escRaw(sec.conclusionText).replace(/\n/g,'<br>')}</td></tr>`:''}
-    ${sec.notes?`<tr><td class="lbl">Allegati / Annexes</td></tr><tr><td style="white-space:pre-wrap">${escRaw(sec.notes).replace(/\n/g,'<br>')}</td></tr>`:''}
-  </table>`;
-}
-
-function buildWordPhotos(sec) {
-  if (!sec.photos || !sec.photos.length) return '';
-  const cols = 2;
-  // Tabella a larghezza FISSA: in Word ("Adatta automaticamente al contenuto" disattivato)
-  // una foto incollata/inserita in una cella viene ridotta alla larghezza della cella.
-  // Cella 8,3 cm con margini interni 0,2 cm → area utile ~7,9 cm,
-  // pari alla larghezza delle foto esportate dall'app (300 px = 7,94 cm a 96 dpi).
-  const cellStyle = 'width:8.3cm;padding:4pt 0.2cm;text-align:center;vertical-align:top';
-  let html = '<table class="photo-tbl" width="628" style="table-layout:fixed;mso-table-layout-alt:fixed;width:16.6cm;border-collapse:collapse;mso-padding-alt:0cm 0.2cm 0cm 0.2cm">'
-           + '<col width="314" style="width:8.3cm"><col width="314" style="width:8.3cm">';
-  for (let i = 0; i < sec.photos.length; i += cols) {
-    html += '<tr>';
-    for (let j = 0; j < cols; j++) {
-      const p = sec.photos[i + j];
-      if (p) {
-        html += `<td class="photo-cell" width="314" style="${cellStyle}"><img src="${p.dataUrl}" width="300" style="width:7.9cm;height:auto;display:block;margin:0 auto;border:1pt solid #ccc"><div class="photo-caption">${escRaw(p.caption||'')}</div></td>`;
-      } else {
-        html += `<td class="photo-cell" width="314" style="${cellStyle}"></td>`;
-      }
-    }
-    html += '</tr>';
-  }
-  html += '</table>';
-  return html;
 }
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
