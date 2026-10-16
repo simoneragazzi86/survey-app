@@ -1124,8 +1124,8 @@ function buildWordHTML(stateData) {
   .tests-hdr td { font-weight:bold; font-size:8pt; border:1pt solid #bbb; text-align:center }
   .tests-row td { border:1pt solid #ddd }
   .outcome-row td { font-weight:bold }
-  .photo-cell { text-align:center; padding:6pt; width:50%; vertical-align:top }
-  .photo-cell img { width:7.8cm; border:1pt solid #ccc; display:block; margin:0 auto }
+  .photo-cell { text-align:center; padding:4pt 0.2cm; width:8.3cm; vertical-align:top }
+  .photo-cell img { width:7.9cm; border:1pt solid #ccc; display:block; margin:0 auto }
   .photo-caption { border:1pt solid #bbb; padding:3pt 5pt; font-size:8pt; margin-top:4pt; min-height:18pt; width:100%; text-align:left }
   .run-hdr td { font-weight:bold; font-size:9pt; border:1pt solid #bbb; text-align:center }
   .run-col-hdr td { font-weight:bold; font-size:8pt; text-align:center; border:1pt solid #bbb }
@@ -1231,15 +1231,21 @@ function buildWordConclusions(sec, def) {
 function buildWordPhotos(sec) {
   if (!sec.photos || !sec.photos.length) return '';
   const cols = 2;
-  let html = '<table>';
+  // Tabella a larghezza FISSA: in Word ("Adatta automaticamente al contenuto" disattivato)
+  // una foto incollata/inserita in una cella viene ridotta alla larghezza della cella.
+  // Cella 8,3 cm con margini interni 0,2 cm → area utile ~7,9 cm,
+  // pari alla larghezza delle foto esportate dall'app (300 px = 7,94 cm a 96 dpi).
+  const cellStyle = 'width:8.3cm;padding:4pt 0.2cm;text-align:center;vertical-align:top';
+  let html = '<table class="photo-tbl" width="628" style="table-layout:fixed;width:16.6cm;border-collapse:collapse">'
+           + '<col width="314" style="width:8.3cm"><col width="314" style="width:8.3cm">';
   for (let i = 0; i < sec.photos.length; i += cols) {
     html += '<tr>';
     for (let j = 0; j < cols; j++) {
       const p = sec.photos[i + j];
       if (p) {
-        html += `<td class="photo-cell"><img src="${p.dataUrl}" width="280" style="width:7.8cm;height:auto;display:block;margin:0 auto;border:1pt solid #ccc"><div class="photo-caption">${escRaw(p.caption||'')}</div></td>`;
+        html += `<td class="photo-cell" width="314" style="${cellStyle}"><img src="${p.dataUrl}" width="300" style="width:7.9cm;height:auto;display:block;margin:0 auto;border:1pt solid #ccc"><div class="photo-caption">${escRaw(p.caption||'')}</div></td>`;
       } else {
-        html += '<td class="photo-cell"></td>';
+        html += `<td class="photo-cell" width="314" style="${cellStyle}"></td>`;
       }
     }
     html += '</tr>';
