@@ -1059,7 +1059,8 @@ const DX = {
   get CONTENT_W() { return this.PAGE_W - this.MARG_L - this.MARG_R; }, // 9638 twip = 17 cm
   PHOTO_CELL_MAR: 113,                    // 0,2 cm a sinistra e a destra
 };
-DX.PHOTO_COL_W = Math.floor(DX.CONTENT_W / 2);                  // 4819 twip = 8,5 cm
+DX.PHOTO_GAP_W = 284;                                           // spazio tra le due colonne (0,5 cm)
+DX.PHOTO_COL_W = Math.floor((DX.CONTENT_W - DX.PHOTO_GAP_W) / 2); // 4677 twip ≈ 8,25 cm
 DX.PHOTO_IMG_EMU = (DX.PHOTO_COL_W - 2 * DX.PHOTO_CELL_MAR) * 635; // larghezza utile cella in EMU
 
 function xe(s) {
@@ -1078,7 +1079,7 @@ function dxRun(text, o = {}) {
 
 function dxPara(runs, o = {}) {
   const pPr = `<w:pPr>${o.border?`<w:pBdr><w:top w:val="single" w:sz="4" w:space="2" w:color="BBBBBB"/><w:left w:val="single" w:sz="4" w:space="4" w:color="BBBBBB"/><w:bottom w:val="single" w:sz="4" w:space="2" w:color="BBBBBB"/><w:right w:val="single" w:sz="4" w:space="4" w:color="BBBBBB"/></w:pBdr>`:''}`
-    + `<w:spacing w:before="${o.before||0}" w:after="${o.after==null?0:o.after}" w:line="240" w:lineRule="auto"/>`
+    + `${o.keepNext?'<w:keepNext/>':''}<w:spacing w:before="${o.before||0}" w:after="${o.after==null?0:o.after}" w:line="240" w:lineRule="auto"/>`
     + `${o.align?`<w:jc w:val="${o.align}"/>`:''}</w:pPr>`;
   return `<w:p>${pPr}${runs||''}</w:p>`;
 }
@@ -1172,26 +1173,29 @@ const BORDER_ROW = null;
 function dxPhotos(sec, ctx) {
   const photos = (sec.photos || []).filter(p => p && p.img);
   if (!photos.length) return '';
-  const w = DX.PHOTO_COL_W;
+  const w = DX.PHOTO_COL_W, g = DX.PHOTO_GAP_W;
+  const CAP_BORDER = {sz:4, color:'BBBBBB'};
+  const gap = () => ({ paras: dxPara('') });
   const rows = [];
   for (let i = 0; i < photos.length; i += 2) {
-    const row = [];
+    const photoRow = [], capRow = [];
     for (let j = 0; j < 2; j++) {
+      if (j) { photoRow.push(gap()); capRow.push(gap()); }
       const p = photos[i + j];
+      let pic = '';
       if (p) {
         const rId = `rIdImg${++ctx.imgN}`;
         ctx.images.push({ rId, name: `media/foto${ctx.imgN}.jpg`, bytes: p.img.bytes });
-        row.push({ paras: dxPara(dxImage(rId, ctx.imgN, p.img.w, p.img.h), {align:'center'})
-                        + dxPara(dxRun(p.caption || '', {sz:16}), {before:80, after:40}) });
-      } else {
-        // Casella vuota con la stessa struttura delle altre: spazio per la foto + riquadro didascalia
-        row.push({ paras: dxPara('', {align:'center'})
-                        + dxPara(dxRun('', {sz:16}), {before:80, after:40}) });
+        pic = dxImage(rId, ctx.imgN, p.img.w, p.img.h);
       }
+      // Casella foto (senza bordo) e, nella riga sotto, box didascalia separato con bordo.
+      // Anche la casella vuota (foto dispari) ha il suo box didascalia.
+      photoRow.push({ paras: dxPara(pic, {align:'center', before: i ? 200 : 0, keepNext:true}), valign:'bottom' });
+      capRow.push({ paras: dxPara(dxRun(p ? (p.caption || '') : '', {sz:16})), borders: CAP_BORDER });
     }
-    rows.push(row);
+    rows.push(photoRow, capRow);
   }
-  return dxTable([w, w], rows, { cellMar: DX.PHOTO_CELL_MAR });
+  return dxTable([w, g, w], rows, { cellMar: DX.PHOTO_CELL_MAR });
 }
 
 function dxStandard(sec, def, ctx) {
@@ -1367,7 +1371,7 @@ async function exportWord() {
     a.href = url; a.download = `${fname}_report.docx`;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 10000);
-    showToast('File .docx scaricato (v7)');
+    showToast('File .docx scaricato (v8)');
   } catch(e) {
     console.error(e);
     showToast('Errore: ' + e.message);
